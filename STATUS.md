@@ -7,7 +7,7 @@
 ## 三阶段进度
 
 ```
-Phase 1：能力骨架（MVP）──────────── [  0%]  0 / 6 课
+Phase 1：能力骨架（MVP）──────────── [ 16%]  1 / 6 课
 Phase 2：上下文管理 ──────────────── [  0%]  0 / 3 课
 Phase 3：Harness 稳定 ───────────── [  0%]  0 / 3 课
 ```
@@ -20,7 +20,7 @@ Phase 3：Harness 稳定 ───────────── [  0%]  0 / 3 �
 - [x] Step 2：消息管理 — 角色交替、tool_result 匹配 tool_use_id、相邻同角色合并
 - [x] Step 3：流式 API — AsyncGenerator 产出 text_delta / tool_use / done 事件
 - [x] Step 4：CLI 入口 — 单次模式（stdin → stdout）能跑通一轮对话
-- [ ] **Tutorial** → `docs/reflections/lesson-1-agent-harness.md`
+- [x] **Tutorial** → `docs/reflections/lesson-1-agent-harness.md`
 
 #### 第 2 课 — Tool 系统（`Tool.ts` + `tools.ts` + `services/tools/`）
 

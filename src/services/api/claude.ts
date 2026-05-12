@@ -1,7 +1,7 @@
 // 流式调用 LLM API：支持 Anthropic 和 OpenAI 兼容两种协议
 //
 // 根据模型名自动选择：claude- 开头走 Anthropic，deepseek- 开头走 OpenAI 协议
-// 两个分支都产出统一的 StreamEvent，上层无需感知差异
+// 两个分支的结果通过回调函数 onEvent 实时返回，最终返回完整的 assistant 消息
 
 import Anthropic from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
@@ -14,32 +14,25 @@ import type { StreamEvent } from '../../types/stream.js'
 
 function getProvider(model: string): 'anthropic' | 'openai' {
   if (model.startsWith('claude-') || model.startsWith('anthropic-')) return 'anthropic'
-  return 'openai' // deepseek、qwen、以及其他 OpenAI 兼容 API
+  return 'openai'
 }
 
 // ─── Anthropic 协议 ───────────────────────────────────────────
 
-type AccToolUse = {
-  id: string
-  name: string
-  input: string // 未 parse 的 JSON 片段
-}
+type AccToolUse = { id: string; name: string; input: string }
 
-async function* streamAnthropic(
+async function streamAnthropic(
   messages: MessageParam[],
   tools: Tool[] | undefined,
+  onEvent: (e: StreamEvent) => void,
   options: { model: string; maxTokens: number },
-): AsyncGenerator<StreamEvent, MessageParam> {
+): Promise<MessageParam> {
   const client = new Anthropic()
   const stream = client.messages.stream({
     model: options.model,
     max_tokens: options.maxTokens,
     messages,
-    tools: tools?.map(t => ({
-      name: t.name,
-      description: t.description,
-      input_schema: t.input_schema,
-    })),
+    tools: tools?.map(t => ({ name: t.name, description: t.description, input_schema: t.input_schema })),
   })
 
   const toolAccs = new Map<number, AccToolUse>()
@@ -55,7 +48,7 @@ async function* streamAnthropic(
       const delta = event.delta
       if (delta.type === 'text_delta') {
         textParts.push(delta.text)
-        yield { type: 'text_delta', text: delta.text }
+        onEvent({ type: 'text_delta', text: delta.text })
       } else if (delta.type === 'input_json_delta') {
         const acc = toolAccs.get(event.index)
         if (acc) acc.input += delta.partial_json
@@ -63,10 +56,10 @@ async function* streamAnthropic(
     } else if (event.type === 'content_block_stop') {
       const acc = toolAccs.get(event.index)
       if (acc && acc.input) {
-        yield { type: 'tool_use', name: acc.name, input: JSON.parse(acc.input) as Record<string, unknown> }
+        onEvent({ type: 'tool_use', name: acc.name, input: JSON.parse(acc.input) as Record<string, unknown> })
       }
     } else if (event.type === 'message_delta') {
-      yield { type: 'done', stop_reason: event.delta.stop_reason ?? undefined }
+      onEvent({ type: 'done', stop_reason: event.delta.stop_reason ?? undefined })
     }
   }
 
@@ -77,11 +70,12 @@ async function* streamAnthropic(
 
 type OpenAIToolAcc = { id: string; name: string; arguments: string }
 
-async function* streamOpenAI(
+async function streamOpenAI(
   messages: MessageParam[],
   tools: Tool[] | undefined,
+  onEvent: (e: StreamEvent) => void,
   options: { model: string; maxTokens: number },
-): AsyncGenerator<StreamEvent, MessageParam> {
+): Promise<MessageParam> {
   const client = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY || '',
     baseURL: process.env.OPENAI_BASE_URL || 'https://api.deepseek.com/v1',
@@ -99,24 +93,27 @@ async function* streamOpenAI(
     stream_options: { include_usage: true },
   })
 
-  // text_delta 和 tool_calls 可能交错到达，分别累积
   const textParts: string[] = []
   const toolAccs = new Map<number, OpenAIToolAcc>()
+  const reasoningParts: string[] = []
   let stopReason: string | undefined
 
   for await (const chunk of stream) {
     const choice = chunk.choices?.[0]
     if (!choice) continue
-
     const delta = choice.delta
 
-    // 文本增量：实时转发
-    if (delta?.content) {
-      textParts.push(delta.content)
-      yield { type: 'text_delta', text: delta.content }
+    // DeepSeek 的思考过程，后续请求需原样传回
+    if ((delta as unknown as Record<string, string>)?.reasoning_content) {
+      const text = (delta as unknown as Record<string, string>).reasoning_content
+      reasoningParts.push(text)
     }
 
-    // 工具调用增量：按 index 累积（每个 index 可能分多次到达）
+    if (delta?.content) {
+      textParts.push(delta.content)
+      onEvent({ type: 'text_delta', text: delta.content })
+    }
+
     if (delta?.tool_calls) {
       for (const tc of delta.tool_calls) {
         let acc = toolAccs.get(tc.index)
@@ -130,7 +127,6 @@ async function* streamOpenAI(
       }
     }
 
-    // 记录结束原因
     if (choice.finish_reason) {
       stopReason = choice.finish_reason === 'stop' ? 'end_turn'
         : choice.finish_reason === 'tool_calls' ? 'tool_use'
@@ -139,14 +135,17 @@ async function* streamOpenAI(
     }
   }
 
-  // 流结束后统一产出 tool_use（OpenAI 的 tool_calls 在 finish_reason 后停止）
+  // 流结束后回调 tool_use（OpenAI 的 tool_calls 在 finish_reason 后才完整）
   for (const [, acc] of toolAccs) {
-    const input = acc.arguments ? JSON.parse(acc.arguments) as Record<string, unknown> : {}
-    yield { type: 'tool_use', name: acc.name, input }
+    onEvent({ type: 'tool_use', name: acc.name, input: acc.arguments ? JSON.parse(acc.arguments) as Record<string, unknown> : {} })
   }
-  yield { type: 'done', stop_reason: stopReason }
+  onEvent({ type: 'done', stop_reason: stopReason })
 
-  return buildAssistantMessage(textParts, toolAccs)
+  const msg = buildAssistantMessage(textParts, toolAccs)
+  if (reasoningParts.length > 0) {
+    (msg as unknown as Record<string, string>).reasoning_content = reasoningParts.join('')
+  }
+  return msg
 }
 
 // ─── 消息格式转换（Anthropic → OpenAI） ───────────────────────
@@ -162,7 +161,6 @@ function toOpenAIMessages(msgs: MessageParam[]): ChatCompletionMessageParam[] {
       const textBlocks = blocks.filter(b => b.type === 'text')
       const toolResults = blocks.filter(b => b.type === 'tool_result')
 
-      // tool_result 在 OpenAI 中用 role: 'tool' 发送
       for (const tr of toolResults) {
         result.push({
           role: 'tool',
@@ -170,7 +168,6 @@ function toOpenAIMessages(msgs: MessageParam[]): ChatCompletionMessageParam[] {
           content: typeof tr.content === 'string' ? tr.content : JSON.stringify(tr.content),
         } as ChatCompletionMessageParam)
       }
-      // 纯文本消息
       if (textBlocks.length > 0) {
         const text = textBlocks.map(b => (b as { text: string }).text).join('')
         result.push({ role: 'user', content: text || '.' })
@@ -179,33 +176,37 @@ function toOpenAIMessages(msgs: MessageParam[]): ChatCompletionMessageParam[] {
       const textBlock = blocks.find(b => b.type === 'text')
       const toolBlocks = blocks.filter(b => b.type === 'tool_use')
 
-      const entry: ChatCompletionMessageParam = {
+      // DeepSeek 需要把 reasoning_content 原样传回
+      const reasoningContent = (msg as unknown as Record<string, string>).reasoning_content
+
+      const entry: Record<string, unknown> = {
         role: 'assistant',
         content: textBlock ? (textBlock as { text: string }).text : null,
-        ...(toolBlocks.length > 0 ? {
-          tool_calls: toolBlocks.map(b => ({
-            id: (b as { id: string }).id,
-            type: 'function' as const,
-            function: {
-              name: (b as { name: string }).name,
-              arguments: JSON.stringify((b as { input: Record<string, unknown> }).input),
-            },
-          })),
-        } : {}),
       }
-      result.push(entry)
+      if (toolBlocks.length > 0) {
+        entry.tool_calls = toolBlocks.map(b => ({
+          id: (b as { id: string }).id,
+          type: 'function' as const,
+          function: {
+            name: (b as { name: string }).name,
+            arguments: JSON.stringify((b as { input: Record<string, unknown> }).input),
+          },
+        }))
+      }
+      if (reasoningContent) {
+        entry.reasoning_content = reasoningContent
+      }
+      result.push(entry as unknown as ChatCompletionMessageParam)
     }
   }
   return result
 }
 
 // ─── 共用：从累积状态构建 assistant 消息 ─────────────────────
+
 type AccEntry = { id: string; name: string } & ({ input: string } | { arguments: string })
 
-function buildAssistantMessage(
-  textParts: string[],
-  accs: Map<number, AccEntry>,
-): MessageParam {
+function buildAssistantMessage(textParts: string[], accs: Map<number, AccEntry>): MessageParam {
   const content: ContentBlockParam[] = []
   if (textParts.length > 0) {
     content.push({ type: 'text' as const, text: textParts.join('') })
@@ -224,19 +225,16 @@ function buildAssistantMessage(
 
 // ─── 导出：自动选择协议 ───────────────────────────────────────
 
-export async function* streamMessage(
+export async function streamMessage(
   messages: MessageParam[],
-  tools?: Tool[],
+  tools: Tool[] | undefined,
+  onEvent: (e: StreamEvent) => void,
   options?: { model?: string; maxTokens?: number },
-): AsyncGenerator<StreamEvent, MessageParam> {
+): Promise<MessageParam> {
   const model = options?.model ?? 'claude-sonnet-4-20250514'
   const maxTokens = options?.maxTokens ?? 4096
 
-  const provider = getProvider(model)
-  const generator = provider === 'anthropic'
-    ? streamAnthropic(messages, tools, { model, maxTokens })
-    : streamOpenAI(messages, tools, { model, maxTokens })
-
-  // 转发所有事件并透传返回值
-  return yield* generator
+  return getProvider(model) === 'anthropic'
+    ? streamAnthropic(messages, tools, onEvent, { model, maxTokens })
+    : streamOpenAI(messages, tools, onEvent, { model, maxTokens })
 }
