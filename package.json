@@ -1,0 +1,20 @@
+{
+  "name": "mini-cc",
+  "version": "0.1.0",
+  "description": "From-scratch reimplementation of Claude Code — learning Agent engineering patterns",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/cli/index.ts",
+    "start": "tsx src/cli/index.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
+    "openai": "^6.37.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.2",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

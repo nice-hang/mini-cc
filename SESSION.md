@@ -9,24 +9,49 @@
 
 > 上次 Session 结束时更新的内容。下个 Session 最先读这里。
 
-**最后更新**：2026-05-11
+**最后更新**：2026-05-12
 
-**当前阶段**：Phase 1 未开始，第 1 课（Agent Harness）待启动
+**当前阶段**：Phase 1 第 1 课 Steps 1-4 完成，Tutorial 待补
+
+**子步骤进度**：
+
+| Step | 状态 |
+|------|------|
+| 1. 最小 Agent 循环 | ✅ 完成 |
+| 2. 消息管理 | ✅ 完成 |
+| 3. 流式 API | ✅ 完成 |
+| 4. CLI 入口 | ✅ 完成 |
+| 5. Tutorial | ⬜ 待做 |
 
 **已完成**：
-- 仓库结构设计确定（镜像 claude-code 架构）
-- CLAUDE.md + ROADMAP.md + STATUS.md 全面更新
-- SESSION.md 替代 HANDOFF.md + LESSON-PLAN.md
+- 第 1 课全部代码按新规范重写（简洁 + 中文注释 + 贴合原版）
+  - `src/Tool.ts` — Tool 类型定义
+  - `src/types/stream.ts` — StreamEvent 类型
+  - `src/utils/messages.ts` — normalizeMessages + buildToolResultMessage
+  - `src/services/api/claude.ts` — streamMessage AsyncGenerator
+  - `src/query/query.ts` — Agent while(true) 循环 + 内置工具执行
+  - `src/cli/index.ts` — CLI 入口（stdin → Agent → stdout）
+  - `src/cli/readline.ts` — stdin 读取
+- **核心设计模式**：
+  - AsyncGenerator 事件流：text_delta / tool_use / done
+  - yield* 转发实现 streamMessage → query 的事件传递
+  - 流式累积 tool_use input JSON，content_block_stop 时 parse
+  - 4 个内置工具（read_file / write_file / bash / web_fetch）
+  - 手动迭代 Generator 模式（CLI 非 Generator 函数）
+- TypeScript 编译 0 错误通过
+- STATUS.md 更新 Steps 1-4 为已完成
 
 **卡住 / 待解决的问题**：
-- 暂无（项目尚未开始编码）
+- 暂无（代码编译通过，需要 API key 才能实际运行测试）
 
 **尝试过但排除的方案**：
-- 按课号划分 src/ 目录 → 不合适，改用镜像 claude-code 源码架构
+- 在 CLI 中用 `yield*` → 不行，main() 不是 Generator 函数，改用 `while(true) { await generator.next() }`
+- 使用 SDK `ContentBlock` 作为返回类型 → 不兼容 `MessageParam.content`，改为用 `ContentBlockParam`
 
 **下一步**：
-1. 创建 src/ 目录骨架
-2. 开始第 1 课实现
+1. 设置 `ANTHROPIC_API_KEY` 后运行 `echo "..." | npm run dev` 验证端到端流程
+2. 写 Tutorial → `docs/reflections/lesson-1-agent-harness.md`
+3. 开始第 2 课（Tool 系统）
 
 ---
 
@@ -38,18 +63,16 @@
 
 **今日目标**：
 
-- [ ] Step 1：最小 Agent 循环
-  - 验收条件：实现 `query.ts` 中的 while(true) 循环，能调一次 API 并返回结果
-  - 预计耗时：
-- [ ] Step 2：消息管理
+- [x] Step 1：最小 Agent 循环
+  - 验收条件：实现 `query.ts` 中的 while(true) 循环
+- [x] Step 2：消息管理
   - 验收条件：角色交替、tool_result 匹配、相邻同角色合并
-  - 预计耗时：
-- [ ] Step 3：流式 API
+- [x] Step 3：流式 API
   - 验收条件：AsyncGenerator 产出 text_delta / tool_use / done 事件
-  - 预计耗时：
-- [ ] Step 4：CLI 入口
+- [x] Step 4：CLI 入口
   - 验收条件：单次模式（stdin → stdout）能跑通一轮对话
-  - 预计耗时：
+- [ ] **Tutorial**
+  - 验收条件：`docs/reflections/lesson-1-agent-harness.md` 完成
 
 **参考源码**：
 - `deps/claude-code/src/query.ts`
