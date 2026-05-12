@@ -8,9 +8,9 @@ import { config as loadEnv } from 'dotenv'
 import pc from 'picocolors'
 loadEnv()
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages'
-import type { Tool } from '../Tool.js'
 import { query } from '../query/query.js'
 import { readStdin } from './readline.js'
+import { createDefaultTools } from '../tools.js'
 
 const MODEL = process.env.ANTHROPIC_MODEL ?? 'deepseek-v4-flash'
 const MAX_TOKENS = 4096
@@ -36,53 +36,14 @@ async function main() {
     process.exit(1)
   }
 
-  // 内置工具定义（传给模型的 schema）
-  const builtinTools: Tool[] = [
-    {
-      name: 'read_file',
-      description: 'Read the contents of a file',
-      input_schema: {
-        type: 'object',
-        properties: { file_path: { type: 'string', description: 'Path to the file' } },
-        required: ['file_path'],
-      },
-    },
-    {
-      name: 'write_file',
-      description: 'Write content to a file',
-      input_schema: {
-        type: 'object',
-        properties: {
-          file_path: { type: 'string', description: 'Path to the file' },
-          content: { type: 'string', description: 'Content to write' },
-        },
-        required: ['file_path', 'content'],
-      },
-    },
-    {
-      name: 'bash',
-      description: 'Run a shell command',
-      input_schema: {
-        type: 'object',
-        properties: { command: { type: 'string', description: 'Command to run' } },
-        required: ['command'],
-      },
-    },
-    {
-      name: 'web_fetch',
-      description: 'Fetch content from a URL',
-      input_schema: {
-        type: 'object',
-        properties: { url: { type: 'string', description: 'URL to fetch' } },
-        required: ['url'],
-      },
-    },
-  ]
+  // 装配内置工具（定义 + 执行逻辑）
+  const toolRegistry = createDefaultTools()
+  const tools = toolRegistry.getAll()
 
   console.error(pc.dim(`Model: ${MODEL}`))
 
   const messages: MessageParam[] = [{ role: 'user', content: input }]
-  const terminal = await query(messages, builtinTools, (event) => {
+  const terminal = await query(messages, tools, (event) => {
     if (event.type === 'text_delta') process.stdout.write(event.text)
   }, { model: MODEL, maxTokens: MAX_TOKENS, maxTurns: MAX_TURNS })
 

@@ -1,13 +1,13 @@
 # mini-cc 实现状态
 
-> 最后更新：2026-05-11
+> 最后更新：2026-05-13
 > 规划详见 ROADMAP.md，当前课程计划详见 SESSION.md
 > 每课拆分子步骤跟踪，支持跨 Session 渐进；**每课最后一步是写教程**。
 
 ## 三阶段进度
 
 ```
-Phase 1：能力骨架（MVP）──────────── [ 16%]  1 / 6 课
+Phase 1：能力骨架（MVP）──────────── [ 33%]  2 / 6 课
 Phase 2：上下文管理 ──────────────── [  0%]  0 / 3 课
 Phase 3：Harness 稳定 ───────────── [  0%]  0 / 3 课
 ```
@@ -24,11 +24,11 @@ Phase 3：Harness 稳定 ───────────── [  0%]  0 / 3 �
 
 #### 第 2 课 — Tool 系统（`Tool.ts` + `tools.ts` + `services/tools/`）
 
-- [ ] Step 1：Tool 定义规范 — JSON Schema、description、并发安全标记、中断行为
-- [ ] Step 2：Tool 注册中心 — name → Tool 的 Map，支持动态注册/注销
-- [ ] Step 3：核心工具集 — read_file / write_file / edit_file / bash / web_search / web_fetch
-- [ ] Step 4：并发分组执行 — partitionToolCalls() 安全并行 + 不安全串行
-- [ ] **Tutorial** → `docs/reflections/lesson-2-tool-system.md`
+- [x] Step 1：Tool 定义规范 — JSON Schema、description、并发安全标记、中断行为
+- [x] Step 2：Tool 注册中心 — name → Tool 的 Map，支持动态注册/注销
+- [x] Step 3：核心工具集 — read_file / write_file / edit_file / bash / web_search / web_fetch
+- [x] Step 4：并发分组执行 — partitionToolCalls() 安全并行 + 不安全串行
+- [x] **Tutorial** → `docs/reflections/lesson-2-tool-system.md`
 
 #### 第 3 课 — MCP 协议（`services/mcp/`）
 
