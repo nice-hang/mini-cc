@@ -52,6 +52,7 @@ Phase 3: Harness 稳定
 **产出**：一个自制的 Agent 循环 + 流式 API，能跑通一轮对话。
 
 **claude-code 参考**：
+
 - `src/query.ts` — queryLoop 核心
 - `src/services/api/claude.ts` — Streaming API
 - `src/utils/messages.ts` — 消息管理
@@ -73,6 +74,7 @@ Phase 3: Harness 稳定
 **产出**：一个可扩展的工具系统，支持并发/串行分组执行。
 
 **claude-code 参考**：
+
 - `src/Tool.ts` — Tool 类型定义
 - `src/tools.ts` — assembleToolPool()
 - `src/services/tools/StreamingToolExecutor.ts` — 流式并行执行
@@ -86,12 +88,13 @@ Phase 3: Harness 稳定
 **src/services/mcp/**
 
 - **MCP Client**：支持 stdio transport，实现 tools/list + tools/call
-- **工具池合并**：MCP 工具和内置工具合并成一个数组（加 `mcp__` 前缀防重名）
+- **工具池合并**：MCP 工具和内置工具合并成一个数组（加 `mcp_`_ 前缀防重名）
 - **连接生命周期**：启动时连接 → 工具注册 → 对话中使用 → 结束时断开
 
 **产出**：Agent 能用 MCP 协议连接外部工具服务器。
 
 **claude-code 参考**：
+
 - `packages/mcp-client/src/` — MCP 客户端库
 - `src/services/mcp/` — MCP 集成
 - `src/tools.ts` — assembleToolPool()
@@ -112,6 +115,7 @@ Phase 3: Harness 稳定
 **产出**：可扩展的 Skill 热加载系统，支持按需加载专家指令。
 
 **claude-code 参考**：
+
 - `src/skills/` — Skill 系统
 - `packages/builtin-tools/src/tools/SkillTool/SkillTool.tsx`
 
@@ -131,6 +135,7 @@ Phase 3: Harness 稳定
 **产出**：Agent 能递归地派生子 Agent 执行子任务。
 
 **claude-code 参考**：
+
 - `packages/builtin-tools/src/tools/AgentTool/` — AgentTool 实现
 - `src/coordinator/` — 协调器
 
@@ -150,6 +155,7 @@ Phase 3: Harness 稳定
 **产出**：可插拔的扩展系统，一个 Plugin 能贡献多种能力。
 
 **claude-code 参考**：
+
 - `src/plugins/` — Plugin 定义
 - `src/services/plugins/` — Plugin 加载注册
 
@@ -175,6 +181,7 @@ Phase 1 实现了"能用"的 Agent，但对话一长模型就"变笨"了——�
 - **熔断器**：连续 3 次 compact 失败后永久跳过
 
 **claude-code 参考**：
+
 - `src/services/compact/autoCompact.ts`
 - `src/services/compact/compact.ts`
 - `src/services/compact/reactiveCompact.ts`
@@ -191,6 +198,7 @@ Phase 1 实现了"能用"的 Agent，但对话一长模型就"变笨"了——�
 - **去重保护**：主 Agent 自己写了 → extractMemories 跳过，防 double write
 
 **claude-code 参考**：
+
 - `src/services/extractMemories/`
 - `src/memdir/`
 - `src/context.ts`
@@ -206,6 +214,7 @@ Phase 1 实现了"能用"的 Agent，但对话一长模型就"变笨"了——�
 - **状态快照**：定期保存 Agent 运行状态（正在执行的工具、待处理的消息）
 
 **claude-code 参考**：
+
 - `src/history.ts` — 对话历史管理
 - `src/services/session/` — Session 管理
 
@@ -230,6 +239,7 @@ Phase 1 实现了"能用"的 Agent，但对话一长模型就"变笨"了——�
 - **后台任务不重试**：extractMemories 等后台调用失败直接放弃
 
 **claude-code 参考**：
+
 - `src/services/api/withRetry.ts`
 - `src/services/api/errors.ts`
 - `src/query.ts`
@@ -246,6 +256,7 @@ Phase 1 实现了"能用"的 Agent，但对话一长模型就"变笨"了——�
 - **Auto-mode 断路器**：超出信任边界 → 回退到 default 模式
 
 **claude-code 参考**：
+
 - `src/hooks/toolPermission/`
 - `src/utils/permissions/`
 
@@ -295,17 +306,20 @@ Phase 3：Harness 稳定
 
 ## 每课交付物
 
-| # | 课程 | src/ 模块 | 关键设计模式 |
-|---|------|-----------|-------------|
-| 1 | Agent Harness | `query/` + `services/api/claude.ts` | AsyncGenerator、事件流、消息契约 |
-| 2 | Tool 系统 | `Tool.ts` + `tools.ts` + `services/tools/` | Tool schema、并发分组、级联取消 |
-| 3 | MCP 协议 | `services/mcp/` | 协议适配、工具池合并、scope 命名 |
-| 4 | Skill 系统 | `skills/` | Frontmatter、渐进注入、按需加载 |
-| 5 | Subagent | `coordinator/` | 递归 Agent、工具过滤、上下文隔离 |
-| 6 | Plugin | `services/plugins/` | 多子系统注册、作用域隔离 |
-| 7 | Auto-Compact | `services/compact/` | Token 预算、LLM 摘要、熔断器 |
-| 8 | Memory | `memdir/` + `services/extractMemories/` | File-native、extract subagent、注入 |
-| 9 | 会话持久化 | `history.ts` | 序列化、快照、状态恢复 |
-| 10 | 错误恢复 | `services/api/withRetry.ts` + `errors.ts` | 重试决策树、降级、熔断 |
-| 11 | Permission | `hooks/permissions/` | 三层决策、投机分类器、模式切换 |
-| 12 | 集成 | 跨系统 | 孤儿清理、重连、超大结果 |
+
+| #   | 课程            | src/ 模块                                    | 关键设计模式                          |
+| --- | ------------- | ------------------------------------------ | ------------------------------- |
+| 1   | Agent Harness | `query/` + `services/api/claude.ts`        | AsyncGenerator、事件流、消息契约         |
+| 2   | Tool 系统       | `Tool.ts` + `tools.ts` + `services/tools/` | Tool schema、并发分组、级联取消           |
+| 3   | MCP 协议        | `services/mcp/`                            | 协议适配、工具池合并、scope 命名             |
+| 4   | Skill 系统      | `skills/`                                  | Frontmatter、渐进注入、按需加载           |
+| 5   | Subagent      | `coordinator/`                             | 递归 Agent、工具过滤、上下文隔离             |
+| 6   | Plugin        | `services/plugins/`                        | 多子系统注册、作用域隔离                    |
+| 7   | Auto-Compact  | `services/compact/`                        | Token 预算、LLM 摘要、熔断器             |
+| 8   | Memory        | `memdir/` + `services/extractMemories/`    | File-native、extract subagent、注入 |
+| 9   | 会话持久化         | `history.ts`                               | 序列化、快照、状态恢复                     |
+| 10  | 错误恢复          | `services/api/withRetry.ts` + `errors.ts`  | 重试决策树、降级、熔断                     |
+| 11  | Permission    | `hooks/permissions/`                       | 三层决策、投机分类器、模式切换                 |
+| 12  | 集成            | 跨系统                                        | 孤儿清理、重连、超大结果                    |
+
+

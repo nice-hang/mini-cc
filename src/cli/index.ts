@@ -3,6 +3,9 @@
 // 使用方式：
 //   echo "What is in package.json?" | npm run dev
 //   npm run dev < input.txt
+//
+// MCP 服务器：通过 MCP_SERVERS 环境变量配置（JSON 数组，HTTP 地址）
+//   export MCP_SERVERS='[{"name":"fs","url":"http://localhost:3100/mcp"}]' && echo "..." | npm run dev
 
 import { config as loadEnv } from 'dotenv'
 import pc from 'picocolors'
@@ -10,11 +13,18 @@ loadEnv()
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages'
 import { query } from '../query/query.js'
 import { readStdin } from './readline.js'
-import { createDefaultTools } from '../tools.js'
+import { createDefaultTools, registerMcpTools } from '../tools.js'
+import { McpClient } from '../services/mcp/index.js'
 
 const MODEL = process.env.ANTHROPIC_MODEL ?? 'deepseek-v4-flash'
 const MAX_TOKENS = 4096
 const MAX_TURNS = 25
+
+interface McpServerEntry {
+  name: string
+  url: string
+  headers?: Record<string, string>
+}
 
 async function main() {
   // 检查 API key
@@ -36,11 +46,34 @@ async function main() {
     process.exit(1)
   }
 
-  // 装配内置工具（定义 + 执行逻辑）
+  // 装配内置工具
   const toolRegistry = createDefaultTools()
+
+  // ── MCP 服务器发现 ──────────────────────────────────────────────
+  // HTTP MCP 无需保持持久连接，每个请求独立
+  const mcpServersJson = process.env.MCP_SERVERS
+  if (mcpServersJson) {
+    try {
+      const servers: McpServerEntry[] = JSON.parse(mcpServersJson)
+      for (const srv of servers) {
+        console.error(pc.dim(`MCP: discovering tools from ${srv.name} (${srv.url})`))
+        const client = new McpClient()
+        try {
+          await client.connect(srv.name, { url: srv.url, headers: srv.headers })
+          const count = await registerMcpTools(toolRegistry, client, srv.name)
+          console.error(pc.dim(`MCP: ${srv.name} → ${count} tools`))
+        } catch (e) {
+          console.error(pc.red(`MCP: ${srv.name} failed: ${(e as Error).message}`))
+        }
+      }
+    } catch (e) {
+      console.error(pc.red(`MCP_SERVERS parse error: ${(e as Error).message}`))
+    }
+  }
+
   const tools = toolRegistry.getAll()
 
-  console.error(pc.dim(`Model: ${MODEL}`))
+  console.error(pc.dim(`Model: ${MODEL}  Tools: ${tools.length}`))
 
   const messages: MessageParam[] = [{ role: 'user', content: input }]
   const terminal = await query(messages, tools, (event) => {

@@ -1,13 +1,13 @@
 # mini-cc 实现状态
 
-> 最后更新：2026-05-13
+> 最后更新：2026-05-14
 > 规划详见 ROADMAP.md，当前课程计划详见 SESSION.md
 > 每课拆分子步骤跟踪，支持跨 Session 渐进；**每课最后一步是写教程**。
 
 ## 三阶段进度
 
 ```
-Phase 1：能力骨架（MVP）──────────── [ 33%]  2 / 6 课
+Phase 1：能力骨架（MVP）──────────── [ 50%]  3 / 6 课
 Phase 2：上下文管理 ──────────────── [  0%]  0 / 3 课
 Phase 3：Harness 稳定 ───────────── [  0%]  0 / 3 课
 ```
@@ -32,10 +32,10 @@ Phase 3：Harness 稳定 ───────────── [  0%]  0 / 3 �
 
 #### 第 3 课 — MCP 协议（`services/mcp/`）
 
-- [ ] Step 1：MCP Client — stdio transport，实现 tools/list + tools/call
-- [ ] Step 2：工具池合并 — MCP 工具和内置工具合并（`mcp__` 前缀防重名）
-- [ ] Step 3：连接生命周期 — 启动连接 → 工具注册 → 使用 → 断开
-- [ ] **Tutorial** → `docs/reflections/lesson-3-mcp-protocol.md`
+- [x] Step 1：MCP Client — HTTP transport，实现 tools/list + tools/call
+- [x] Step 2：工具池合并 — MCP 工具和内置工具合并（`mcp__` 前缀防重名）
+- [x] Step 3：连接生命周期 — 启动连接 → 工具注册 → 使用 → 断开
+- [x] **Tutorial** → `docs/reflections/lesson-3-mcp-protocol.md`
 
 #### 第 4 课 — Skill 系统（`skills/`）
 
