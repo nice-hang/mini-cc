@@ -11,6 +11,8 @@ import { bashTool } from './services/tools/bash.js'
 import { webSearchTool } from './services/tools/web_search.js'
 import { webFetchTool } from './services/tools/web_fetch.js'
 import type { McpClient } from './services/mcp/client.js'
+import type { Skill } from './skills/types.js'
+import { createSkillTool } from './services/tools/skill.js'
 
 export function createDefaultTools(): ToolRegistry {
   const registry = new ToolRegistry()
@@ -35,4 +37,14 @@ export async function registerMcpTools(
     registry.register(client.toMiniCCTool(tool, serverName))
   }
   return tools.length
+}
+
+// 注册 Skill Tool：把已加载的 skill 列表包装成一个工具暴露给模型
+// 模型通过 Skill({skill: "name"}) 获取 skill 完整指令
+export function registerSkillTool(
+  registry: ToolRegistry,
+  skills: Skill[],
+): void {
+  if (skills.length === 0) return
+  registry.register(createSkillTool(skills))
 }

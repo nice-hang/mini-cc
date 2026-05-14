@@ -25,12 +25,13 @@ async function streamAnthropic(
   messages: MessageParam[],
   tools: Tool[] | undefined,
   onEvent: (e: StreamEvent) => void,
-  options: { model: string; maxTokens: number },
+  options: { model: string; maxTokens: number; system?: string },
 ): Promise<MessageParam> {
   const client = new Anthropic()
   const stream = client.messages.stream({
     model: options.model,
     max_tokens: options.maxTokens,
+    system: options.system,
     messages,
     tools: tools?.map(t => ({ name: t.name, description: t.description, input_schema: t.input_schema })),
   })
@@ -74,17 +75,23 @@ async function streamOpenAI(
   messages: MessageParam[],
   tools: Tool[] | undefined,
   onEvent: (e: StreamEvent) => void,
-  options: { model: string; maxTokens: number },
+  options: { model: string; maxTokens: number; system?: string },
 ): Promise<MessageParam> {
   const client = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY || '',
     baseURL: process.env.OPENAI_BASE_URL || 'https://api.deepseek.com/v1',
   })
 
+  const openAIMsgs = toOpenAIMessages(messages)
+  // OpenAI 协议：system prompt 作为 system 角色消息插在开头
+  if (options.system) {
+    openAIMsgs.unshift({ role: 'system' as const, content: options.system })
+  }
+
   const stream = await client.chat.completions.create({
     model: options.model,
     max_tokens: options.maxTokens,
-    messages: toOpenAIMessages(messages),
+    messages: openAIMsgs,
     tools: tools?.map(t => ({
       type: 'function' as const,
       function: { name: t.name, description: t.description, parameters: t.input_schema },
@@ -229,12 +236,13 @@ export async function streamMessage(
   messages: MessageParam[],
   tools: Tool[] | undefined,
   onEvent: (e: StreamEvent) => void,
-  options?: { model?: string; maxTokens?: number },
+  options?: { model?: string; maxTokens?: number; system?: string },
 ): Promise<MessageParam> {
   const model = options?.model ?? 'claude-sonnet-4-20250514'
   const maxTokens = options?.maxTokens ?? 4096
+  const system = options?.system
 
   return getProvider(model) === 'anthropic'
-    ? streamAnthropic(messages, tools, onEvent, { model, maxTokens })
-    : streamOpenAI(messages, tools, onEvent, { model, maxTokens })
+    ? streamAnthropic(messages, tools, onEvent, { model, maxTokens, system })
+    : streamOpenAI(messages, tools, onEvent, { model, maxTokens, system })
 }

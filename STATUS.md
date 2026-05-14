@@ -1,13 +1,13 @@
 # mini-cc 实现状态
 
-> 最后更新：2026-05-14
+> 最后更新：2026-05-15
 > 规划详见 ROADMAP.md，当前课程计划详见 SESSION.md
 > 每课拆分子步骤跟踪，支持跨 Session 渐进；**每课最后一步是写教程**。
 
 ## 三阶段进度
 
 ```
-Phase 1：能力骨架（MVP）──────────── [ 50%]  3 / 6 课
+Phase 1：能力骨架（MVP）──────────── [ 66%]  4 / 6 课
 Phase 2：上下文管理 ──────────────── [  0%]  0 / 3 课
 Phase 3：Harness 稳定 ───────────── [  0%]  0 / 3 课
 ```
@@ -39,11 +39,10 @@ Phase 3：Harness 稳定 ───────────── [  0%]  0 / 3 �
 
 #### 第 4 课 — Skill 系统（`skills/`）
 
-- [ ] Step 1：Skill 发现 — 目录扫描 + frontmatter 解析
-- [ ] Step 2：渐进注入 — system prompt 只注入 name + description，匹配后按需加载
-- [ ] Step 3：Skill Tool — 返回处理后的指令（变量替换 + 参数注入）
-- [ ] Step 4：Skill 限制 — allowed-tools 定义 skill 只能调哪些工具
-- [ ] **Tutorial** → `docs/reflections/lesson-4-skill-system.md`
+- [x] Step 1：Skill 发现 — 目录扫描 + frontmatter 解析
+- [x] Step 2：Skill Tool — tool description 曝露 skill 列表，call 返回完整指令（含变量替换）
+- [x] Step 3：Skill 限制 — allowed-tools 定义 skill 只能调哪些工具
+- [x] **Tutorial** → `docs/reflections/lesson-4-skill-system.md`
 
 #### 第 5 课 — Subagent 系统（`coordinator/`）
 

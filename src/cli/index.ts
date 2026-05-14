@@ -13,8 +13,11 @@ loadEnv()
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages'
 import { query } from '../query/query.js'
 import { readStdin } from './readline.js'
-import { createDefaultTools, registerMcpTools } from '../tools.js'
+import { createDefaultTools, registerMcpTools, registerSkillTool } from '../tools.js'
 import { McpClient } from '../services/mcp/index.js'
+import { loadSkillsFromDir } from '../skills/index.js'
+import { homedir } from 'os'
+import { join } from 'path'
 
 const MODEL = process.env.ANTHROPIC_MODEL ?? 'deepseek-v4-flash'
 const MAX_TOKENS = 4096
@@ -49,6 +52,15 @@ async function main() {
   // 装配内置工具
   const toolRegistry = createDefaultTools()
 
+  // ── Skill 发现 ──────────────────────────────────────────────────
+  // 扫描 ~/.mini-cc/skills/*/SKILL.md，注册到 Skill Tool
+  const skillsDir = process.env.SKILLS_DIR || join(homedir(), '.mini-cc', 'skills')
+  const skills = await loadSkillsFromDir(skillsDir)
+  registerSkillTool(toolRegistry, skills)
+  if (skills.length > 0) {
+    console.error(pc.dim(`Skills: ${skills.map(s => s.name).join(', ')}`))
+  }
+
   // ── MCP 服务器发现 ──────────────────────────────────────────────
   // HTTP MCP 无需保持持久连接，每个请求独立
   const mcpServersJson = process.env.MCP_SERVERS
@@ -78,7 +90,7 @@ async function main() {
   const messages: MessageParam[] = [{ role: 'user', content: input }]
   const terminal = await query(messages, tools, (event) => {
     if (event.type === 'text_delta') process.stdout.write(event.text)
-  }, { model: MODEL, maxTokens: MAX_TOKENS, maxTurns: MAX_TURNS })
+  }, { model: MODEL, maxTokens: MAX_TOKENS, maxTurns: MAX_TURNS, skills })
 
   if (terminal.reason === 'max_turns') {
     console.error(pc.yellow('\n[Max turns reached]'))
