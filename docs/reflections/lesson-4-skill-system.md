@@ -24,14 +24,16 @@
     │      Skill Tool              │
     │  description: 列出所有 skill  │  ← 零固定 token 开销
     │  call(name):  返回完整指令    │  ← 模型主动调用才加载
-    └──────────────────────────────┘
-              │
-              │ 模型调用 Skill("name")
-              ▼
-    ┌──────────────────────────────┐
-    │  完整指令注入对话上下文        │
-    │  + allowed-tools 过滤工具集   │
-    └──────────────────────────────┘
+    └──────────────┬───────────────┘
+                   │
+                   │ 模型调用 Skill("name")
+                   ▼
+         ┌─────────────────┐
+         │  两种执行模式     │
+         ├─────────────────┤
+         │ inline（默认）    │ → 内容注入对话，软约束
+         │ fork             │ → 启动子 Agent 隔离执行
+         └─────────────────┘
 ```
 
 ## 为什么需要它
@@ -59,7 +61,7 @@ Skill 系统的解法：**把领域知识拆分到独立文件中，用工具接
 - **零固定 token 开销** — 没有 skill 注入到 system prompt 中。模型只有在决定调用 Skill Tool 时才会读到 skill 列表的描述，不调用时完全零开销
 - **渐进式披露** — 模型先看到 skill 的 name + description（通过 Tool description），决定用哪个后才加载完整指令。类比："书名 + 封面 → 翻到具体页"
 - **可扩展** — skill 就是一个 markdown 文件 + frontmatter，任何人都能写。放在 `~/.mini-cc/skills/<name>/SKILL.md` 即可被自动发现
-- **安全边界** — `allowed-tools` 白名单控制 skill 激活后能调哪些工具，防止模型在 skill 上下文中误用危险工具
+- **双执行模式** — `context: 'inline'`（默认）将 skill 内容注入当前对话；`context: 'fork'` 启动独立子 Agent 隔离执行
 
 ### Trade-off
 
@@ -88,6 +90,7 @@ name: example
 description: 示例 Skill
 when_to_use: 当用户想测试 skill 系统时
 allowed_tools: [read_file, web_search]
+context: inline          # inline（默认）| fork
 arguments: [query, language]
 ---
 
@@ -133,28 +136,35 @@ Skill 加载后做三步替换：
 2. `$ARGUMENTS` → 模型调用 Skill 时传入的原始 args 字符串
 3. `${argumentName}` → 按 `argumentNames` 中的命名逐个替换（位置参数解析）
 
-### 模式 4：Allowed-Tools 过滤 — 工具权限控制
+### 模式 4：Allowed-Tools — 软约束方案
 
-skill 激活后，`query.ts` 在每轮循环开始时检查 `activeSkillName`：
+这是本课最重要的设计纠正。**mini-cc 第一版错误地实现了硬过滤**（在 `query.ts` 中追踪 `activeSkillName`，砍掉模型看到的工具列表）。
+
+claude-code 的实际做法完全不同：
+
+**Inline 模式（默认）：**
+- **不做工具过滤**。模型始终看到全部工具
+- Skill 的 `allowed_tools` 通过 `contextModifier` 回调，添加到 `ToolUseContext` 的 `alwaysAllowRules`（权限自动批准规则）
+- 约束是软性的：模型通过 skill 内容中的指令知道"该用什么工具"，但仍然可以调用其他工具（只是会触发权限提示）
+- 没有"激活的 skill"状态概念——`contextModifier` 在 Skill Tool 返回时由 `StreamingToolExecutor` 应用，影响后续的权限决策
+
+**Fork 模式：**
+- 启动独立的子 Agent，通过 `createSubagentContext()` 创建隔离的执行环境
+- `allowed_tools` 在子 Agent 中成为真正的工具白名单——子 Agent 的工具注册表只包含这些工具
+- 这是真正的"硬隔离"，不共享上下文
+
+**mini-cc 当前的做法（修正后）：**
+
+既然 mini-cc 还没有权限系统（第 11 课），inline 模式的 allowed-tools 就作为**软约束**——只在 Skill Tool 的 `description` 中展示给模型（`[工具限制：read_file, web_search]`），模型按指令行事。`query.ts` 不做任何过滤，始终把全部工具发给模型。
 
 ```typescript
-let currentAllowedTools: string[] | null = null
-if (activeSkillName) {
-  const activeSkill = skills?.find(s => s.name === activeSkillName)
-  if (activeSkill?.allowedTools?.length) {
-    currentAllowedTools = activeSkill.allowedTools
-  }
-}
+// 修正前：query.ts 中做硬过滤
+let activeSkillName: string | null = null
+// ... 每轮检查 activeSkill → 过滤 tools 数组 ...
 
-const modelTools = currentAllowedTools
-  ? tools?.filter(t => currentAllowedTools.includes(t.name) || t.name === 'Skill')
-  : tools
+// 修正后：query.ts 不感知 skill，工具列表不变
+// 所有工具始终对模型可见
 ```
-
-- 只过滤**发送给模型**的工具列表（模型看不到不能用的工具）
-- 执行层仍用全量工具索引（防止同一轮内混合调用的查找错误）
-- Skill 工具本身始终保留，方便模型切换 skill
-- 无 active skill 时不做任何过滤
 
 ## 实现要点
 
@@ -174,9 +184,6 @@ const modelTools = currentAllowedTools
        │
        ▼
   指令出现在 tool_result 中 → 模型据此行动
-       │
-       ▼
-  后续工具调用受 allowed-tools 约束
 ```
 
 ### 边界情况
@@ -186,8 +193,8 @@ const modelTools = currentAllowedTools
 | `~/.mini-cc/skills/` 不存在 | `loadSkillsFromDir` 返回空数组，不报错 |
 | 目录下没有 SKILL.md | 跳过该目录，继续扫描 |
 | frontmatter 不完整/格式错误 | 返回空 frontmatter，用目录名当 skill 名 |
-| `allowed_tools` 未定义 | 不做任何过滤，所有工具可用 |
-| `allowed_tools: []` | 同上，视为未定义（无限制） |
+| `allowed_tools` 未定义 | description 中不显示工具限制 |
+| `allowed_tools: []` | 同上，视为未定义 |
 | 无 skill 注册 | Skill Tool 不注册，零工具开销 |
 | 找不到 skill | 返回错误消息 `错误：未找到 Skill "name"` |
 | 变量名不匹配 | 保留原文不变，不替换 |
@@ -198,24 +205,33 @@ const modelTools = currentAllowedTools
 |---|---|---|
 | `src/skills/types.ts` | `src/skills/bundledSkills.ts` (`Command` type) | mini-cc 合并了 frontmatter 字段到 Skill 接口，claude-code 把 Command 和 Skill 分开定义 |
 | `src/skills/loader.ts` | `src/skills/loadSkillsDir.ts` | claude-code 支持多级目录、黑名单、去重等，mini-cc 只支持 `*/SKILL.md` 扁平结构 |
-| `src/services/tools/skill.ts` | `packages/builtin-tools/src/tools/SkillTool/` | claude-code 使用 Context API 设置 active skill、用 `formatCommandsWithinBudget()` 做预算截断；mini-cc 直接拼接 description |
-| `src/query/query.ts` (activeSkillName) | `packages/builtin-tools/src/tools/SkillTool/SkillTool.ts` | claude-code 通过 `ctx.setActiveSkill()` 持久化到 Context；mini-cc 在 query 循环中用局部变量追踪 |
+| `src/services/tools/skill.ts` | `packages/builtin-tools/src/tools/SkillTool/` | claude-code 使用 `contextModifier` 回调修改 `ToolUseContext`（改 alwaysAllowRules/模型/effort）；mini-cc 只在 description 中展示软约束 |
+| `src/query/query.ts` | `src/services/tools/StreamingToolExecutor.ts` | **关键差异**：mini-cc 第一版在 query.ts 中做了硬过滤（已撤回）。claude-code 的 inline 模式不做工具过滤，由 StreamToolExecutor 应用 contextModifier |
+| (fork 模式) | `src/utils/forkedAgent.ts` | 未实现，依赖第 5 课 subagent 系统。claude-code 通过 `createSubagentContext()` + `runForkedAgent()` 执行 |
 
-**主要简化**：
+**设计教训（本课最重要的部分）：**
 
-- **Budget 控制**：claude-code 的 `SKILL_BUDGET_CONTEXT_PERCENT = 1%` 用 context window 的 1% 做 skill 描述预算，超了要截断。mini-cc 直接全量放 description 里——因为当前只有几个 skill，远不会超
-- **Attachment 注入**：claude-code 会把 skill listing 作为 conversation attachments 增量更新，实现"无感刷新"。mini-cc 的 Skill Tool description 在启动时一次性构建，不支持动态更新
-- **去重逻辑**：claude-code 处理同名 skill 取最长 description。mini-cc 不做去重，后加载的覆盖先加载的
+**没有先读 claude-code 源码就做设计决策，导致了方向性错误。**
 
-## 学到的设计教训
+第一版实现凭推测认为"allowed-tools 应该硬过滤工具列表"，在 `query.ts` 中引入了 `activeSkillName` 追踪和数组过滤。后来读了 claude-code 源码才发现：
+
+1. claude-code 的 inline 模式不做工具过滤——改的是权限系统的 `alwaysAllowRules`
+2. claude-code 没有 `setActiveSkill` 这个概念——用的是 `contextModifier` 回调
+3. 真正的硬隔离发生在 fork 模式，通过子 Agent 实现
+
+**这个错误的成本**：从设计到实现到文档，全部需要推翻重来。如果在动手前先读 10 分钟 claude-code 源码，完全可以避免。
+
+## 设计教训
 
 1. **工具的 description 是零成本的"广告位"** — Skill 系统最优雅的一点是它没有引入任何新机制，只是把 skill 清单放到了 Tool description 里。模型读 tool 列表时顺带看到了技能。千万不要为了"曝露信息"而专门写一段系统 prompt。
 
 2. **让模型主动获取，不要推送** — System prompt 推送的信息占用的是"租金"（每轮都付）。Skill Tool 拉取的信息是"按需购买"（用时才付费）。Agent 系统里，能让模型主动拿的就别塞给它。
 
-3. **白名单比黑名单安全** — `allowed-tools` 定义的是"能做什么"而不是"不能做什么"。白名单有默认拒绝的特性：新加的工具不会自动暴露给所有 skill，需要 skill 作者显式声明。这个模式也用在 subagent 系统里（explore 只读、plan 读+写）。
+3. **先读源码，再下结论** — 本课最大的教训。`allowed-tools"硬过滤"` 是一个完全错误的推测。如果有疑问，`deps/claude-code/` 就在那里。读 10 分钟源码比花 1 小时实现错误方案然后重来更高效。
 
-4. **Frontmatter 够用就行** — 一开始想引入 yaml 库解析 frontmatter，后来发现 flat key:value + 列表就够了。纯 regex 解析省了一个依赖、零学习成本。SKILL.md 是给人写的，不是给机器写的——够简单才有人写。
+4. **软约束 vs 硬约束** — Inline 模式的约束天然应该是软的：你告诉模型该怎么做，它照做。硬约束（工具过滤、权限拦截）是有成本的系统机制，用在真正需要隔离的场景（fork 模式、subagent）。不要为软场景上硬手段。
+
+5. **Frontmatter 够用就行** — 纯 regex 解析省了一个依赖、零学习成本。SKILL.md 是给人写的，不是给机器写的——够简单才有人写。
 
 ---
 

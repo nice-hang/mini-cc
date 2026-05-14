@@ -90,7 +90,7 @@ async function main() {
   const messages: MessageParam[] = [{ role: 'user', content: input }]
   const terminal = await query(messages, tools, (event) => {
     if (event.type === 'text_delta') process.stdout.write(event.text)
-  }, { model: MODEL, maxTokens: MAX_TOKENS, maxTurns: MAX_TURNS, skills })
+  }, { model: MODEL, maxTokens: MAX_TOKENS, maxTurns: MAX_TURNS })
 
   if (terminal.reason === 'max_turns') {
     console.error(pc.yellow('\n[Max turns reached]'))

@@ -75,6 +75,7 @@ export async function loadSkillsFromDir(skillsDir: string): Promise<Skill[]> {
       const { frontmatter, content } = parseFrontmatter(raw)
       const name = (frontmatter.name as string) || entry
 
+      const ctx = frontmatter.context as string | undefined
       return {
         name,
         description: (frontmatter.description as string) || '',
@@ -89,6 +90,7 @@ export async function loadSkillsFromDir(skillsDir: string): Promise<Skill[]> {
           : typeof frontmatter.arguments === 'string'
             ? (frontmatter.arguments as string).split(',').map(s => s.trim())
             : undefined,
+        context: ctx === 'fork' ? 'fork' : 'inline',
       }
     }),
   )

@@ -21,21 +21,25 @@
 - Skill 目录固定为 `~/.mini-cc/skills/<name>/SKILL.md`
 - 无 skill 时 Skill Tool 不注册，零开销
 - Variable substitution: `${CLAUDE_SKILL_DIR}` → skill baseDir, `$ARGUMENTS` → args 参数, `${name}` → 命名参数
-- Allowed-tools 过滤：`query.ts` 中追踪 `activeSkillName`，在调用模型前过滤 tools 数组；Skill 工具本身始终可用，方便模型切换 skill；过滤作用于模型可见的工具列表，执行层仍使用全量工具索引
+- Allowed-tools：**软约束方案** —— Skill Tool 的 description 中告知模型建议使用的工具（`[工具限制：...]`），不拦截实际调用。模型始终能看到全部工具。这与 claude-code 的 inline 模式一致（claude-code 用 `contextModifier` 改 `alwaysAllowRules` 做权限自动批准，不改工具可见性）
+- `context` 字段（`'inline' | 'fork'`）已添加到 Skill 接口，fork 模式需等第 5 课 subagent 系统完成后实现
 
 **设计理由（对比 system prompt 注入方案）**：
 - System prompt 注入：有 skill 就固定占 token，信息与 Skill Tool 描述重复
 - Skill Tool description：无 skill 零开销，单一数据源，模型主动发现（同 claude-code 设计）
 
 **已完成**（Step 1 ~ Step 3）：
-- `src/skills/types.ts` — Skill 接口定义
+- `src/skills/types.ts` — Skill 接口定义（含 context 字段）
 - `src/skills/loader.ts` — 目录扫描 + frontmatter 解析
 - `src/services/tools/skill.ts` — Skill Tool（description 列表 + call 加载 + 变量替换）
 - `src/skills/index.ts` — 公开 API
 - `src/tools.ts` — 新增 `registerSkillTool()` 辅助函数
 - `src/cli/index.ts` — 启动时加载 skills → 注册 Skill Tool
 - `~/.mini-cc/skills/example/SKILL.md` — 示例 skill
-- `src/query/query.ts` — 激活 skill 后按 allowed-tools 过滤工具列表（Skill 工具本身始终可用）
+- `CLAUDE.md` — 实现原则 3：以 claude-code 源码为准
+
+**已废弃/撤回**：
+- `src/query/query.ts` 中的 `activeSkillName` 追踪和工具列表过滤 — 与 claude-code 的 inline 模式不符（claude-code 不做硬过滤），已删除
 
 **尝试过但排除的方案**：
 - System prompt 注入技能列表 → Skill Tool description 更简洁，零固定 token 开销

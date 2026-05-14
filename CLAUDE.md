@@ -170,8 +170,9 @@ export async function* query(
 
 1. **从本质出发** — 先理解这个模块解决什么根本问题，再动手
 2. **Happy Path First** — 先跑通核心流程，再加边界处理（本质 5min → Happy Path 30min → 边界 30min）
-3. **对照修正** — 实现后对比 claude-code 源码，看差异在哪
-4. **每节课一个独立提交** — git commit 按课分割，方便回溯
+3. **以 claude-code 源码为准** — 设计原理必须对照 `deps/claude-code/` 中的实际实现做决策。不允许凭推测或"我觉得它应该这样"来设计。有疑问时，先读源码，再下结论
+4. **对照修正** — 实现后对比 claude-code 源码，看差异在哪，及时纠正偏差
+5. **每节课一个独立提交** — git commit 按课分割，方便回溯
 
 ## 跨 Session 工作流（渐进式披露）
 

@@ -41,7 +41,7 @@ Phase 3：Harness 稳定 ───────────── [  0%]  0 / 3 �
 
 - [x] Step 1：Skill 发现 — 目录扫描 + frontmatter 解析
 - [x] Step 2：Skill Tool — tool description 曝露 skill 列表，call 返回完整指令（含变量替换）
-- [x] Step 3：Skill 限制 — allowed-tools 定义 skill 只能调哪些工具
+- [x] Step 3：Skill 限制 — allowed-tools 作为软约束在 tool description 中告知模型（inline 模式）；添加 context 字段预留 fork 执行模式
 - [x] **Tutorial** → `docs/reflections/lesson-4-skill-system.md`
 
 #### 第 5 课 — Subagent 系统（`coordinator/`）
