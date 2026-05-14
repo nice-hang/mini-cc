@@ -11,9 +11,40 @@
 
 **最后更新**：2026-05-15
 
-**当前阶段**：Phase 1 第 5 课 — Subagent 系统（未开始）
+**当前阶段**：Phase 1 第 5 课 — Subagent 系统（全部完成）
 
-**上节课完成**：第 4 课 — Skill 系统（全部 3 个 Step + Tutorial 完成）
+**上节课完成**：第 5 课 — Subagent 系统（全部 3 个 Step + Tutorial 完成）
+
+**关键决策**：
+- AgentTool 使用 Sync 模式：子 Agent 在父 Agent 工具执行阶段同步运行，结果通过 tool_result 返回
+- 防递归通过工具列表过滤实现（AgentTool 不进入子 Agent 的工具列表），而非提示词约束
+- 工具过滤分两层：防递归（硬约束）+ 类型限制（白名单）
+- 三种内置 Agent 类型：general（全工具）、explore（只读）、plan（读写无 bash）
+- AgentTool 需要一个全局 allTools 引用，在全部工具注册完成后通过 `finalizeTools()` 设置
+- runAgent 核心逻辑只有 40 行：filterTools → create messages → query() → collect text
+
+**设计理由**：
+- 函数式隔离：query() 接收全部参数、不依赖全局状态 → 子 Agent = 一次函数调用
+- Tool 接口足够表达"启动一个 Agent" → 不引入新范式
+- Sync 模式够简单，async 模式需要 task/notification 系统
+
+**已完成**（Step 1 ~ Step 3 + Tutorial）：
+- `src/coordinator/types.ts` — AgentDefinition 类型
+- `src/coordinator/agents.ts` — 三种内置 Agent 定义
+- `src/coordinator/toolFilter.ts` — 双层工具过滤
+- `src/coordinator/runAgent.ts` — 子 Agent 执行器
+- `src/services/tools/agent.ts` — AgentTool（Tool 包装）
+- `src/tools.ts` — registerAgentTool + finalizeTools
+- `src/cli/index.ts` — AgentTool 注册 + finalize
+- `docs/reflections/lesson-5-subagent-system.md` — 教程
+
+**尝试过但排除的方案**：
+- Async 模式：需要 task 注册表和跨轮次消息通知，超出当前范围
+- AbortController 独立管理：子 Agent 同步运行在工具执行阶段，父 Agent 的 AbortController 自然 cascade
+- 文件系统加载自定义 Agent：只用硬编码的三种内置类型，够用
+
+**下一步**：
+第 6 课 — Plugin 系统（services/plugins/）：扫描目录 → manifest 解析 → 多子系统统一注册（Tool / Skill / Command / MCP）
 
 **关键决策**：
 - Skill 不走 system prompt 注入，改为 Skill Tool 的 description 字段暴露 — 零固定 token 开销，模型决定调 tool 时才读到技能列表
@@ -55,14 +86,13 @@
 
 > 当前 Session 要完成的内容。每完成一步就勾选。
 
-**课程**：第 4 课 — Skill 系统（`src/skills/`）
+**课程**：第 5 课 — Subagent 系统（`src/coordinator/`）
 
-- [x] Step 1：Skill 发现 — 目录扫描 + frontmatter 解析
-- [x] Step 2：Skill Tool — tool description 曝露 skill 列表，call 返回完整指令（含变量替换）
-- [x] Step 3：Skill 限制 — allowed-tools 过滤工具集
-- [x] **Tutorial** → `docs/reflections/lesson-4-skill-system.md`
+- [x] Step 1：AgentTool — 创建独立 Agent 实例（独立对话历史 + 独立工具集 + 独立 system prompt）
+- [x] Step 2：工具过滤 — 按子 Agent 类型只给部分工具（explore 只读、plan 读+写、general 全开）
+- [x] Step 3：Sync 模式 + 防递归 — 子 Agent 完整运行后返回结果，子 Agent 默认不能调 AgentTool
+- [x] **Tutorial** → `docs/reflections/lesson-5-subagent-system.md`
 
 **参考源码**：
-- `deps/claude-code/src/skills/loadSkillsDir.ts` — 目录扫描 + 去重
-- `deps/claude-code/src/skills/bundledSkills.ts` — createSkillCommand
-- `deps/claude-code/packages/builtin-tools/src/tools/SkillTool/` — Skill Tool
+- `deps/claude-code/packages/builtin-tools/src/tools/AgentTool/` — AgentTool 实现
+- `deps/claude-code/src/coordinator/` — 协调器定义

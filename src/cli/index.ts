@@ -13,7 +13,9 @@ loadEnv()
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages'
 import { query } from '../query/query.js'
 import { readStdin } from './readline.js'
-import { createDefaultTools, registerMcpTools, registerSkillTool } from '../tools.js'
+import { createDefaultTools, registerMcpTools, registerSkillTool, registerAgentTool, finalizeTools } from '../tools.js'
+import { AgentRegistry, BUILT_IN_AGENTS } from '../coordinator/agents.js'
+import { loadAgentsFromDir } from '../coordinator/loader.js'
 import { McpClient } from '../services/mcp/index.js'
 import { loadSkillsFromDir } from '../skills/index.js'
 import { homedir } from 'os'
@@ -61,6 +63,17 @@ async function main() {
     console.error(pc.dim(`Skills: ${skills.map(s => s.name).join(', ')}`))
   }
 
+  // ── Subagent 系统 ──────────────────────────────────────────────
+  // 装载 Agent 定义（内置 + 文件）→ 注册 AgentTool
+  const agentsDir = process.env.AGENTS_DIR || join(homedir(), '.mini-cc', 'agents')
+  const agentRegistry = new AgentRegistry(BUILT_IN_AGENTS)
+  const fileAgents = await loadAgentsFromDir(agentsDir)
+  fileAgents.forEach(a => agentRegistry.register(a))
+  registerAgentTool(toolRegistry, agentRegistry)
+  if (fileAgents.length > 0) {
+    console.error(pc.dim(`Agents: ${fileAgents.map(a => a.name).join(', ')}`))
+  }
+
   // ── MCP 服务器发现 ──────────────────────────────────────────────
   // HTTP MCP 无需保持持久连接，每个请求独立
   const mcpServersJson = process.env.MCP_SERVERS
@@ -82,6 +95,9 @@ async function main() {
       console.error(pc.red(`MCP_SERVERS parse error: ${(e as Error).message}`))
     }
   }
+
+  // 全部工具注册完毕，建立 AgentTool 的全局引用
+  finalizeTools(toolRegistry)
 
   const tools = toolRegistry.getAll()
 

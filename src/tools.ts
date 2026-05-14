@@ -13,6 +13,8 @@ import { webFetchTool } from './services/tools/web_fetch.js'
 import type { McpClient } from './services/mcp/client.js'
 import type { Skill } from './skills/types.js'
 import { createSkillTool } from './services/tools/skill.js'
+import { createAgentTool, updateAllTools } from './services/tools/agent.js'
+import type { AgentRegistry } from './coordinator/agents.js'
 
 export function createDefaultTools(): ToolRegistry {
   const registry = new ToolRegistry()
@@ -47,4 +49,19 @@ export function registerSkillTool(
 ): void {
   if (skills.length === 0) return
   registry.register(createSkillTool(skills))
+}
+
+// 注册 AgentTool：把 agent 注册表中的所有 Agent 包装成一个工具暴露给模型
+// 模型通过 AgentTool({ subagent_type: "explore", prompt: "..." }) 启动子 Agent
+export function registerAgentTool(
+  registry: ToolRegistry,
+  agentRegistry: AgentRegistry,
+): void {
+  registry.register(createAgentTool(agentRegistry))
+}
+
+// 在全部工具注册完成后调用，建立 AgentTool 所需的全局工具引用
+// AgentTool 用它来做工具过滤（防递归 + 类型限制）
+export function finalizeTools(registry: ToolRegistry): void {
+  updateAllTools(registry.getAll())
 }

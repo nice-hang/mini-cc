@@ -7,7 +7,7 @@
 ## 三阶段进度
 
 ```
-Phase 1：能力骨架（MVP）──────────── [ 66%]  4 / 6 课
+Phase 1：能力骨架（MVP）──────────── [ 83%]  5 / 6 课
 Phase 2：上下文管理 ──────────────── [  0%]  0 / 3 课
 Phase 3：Harness 稳定 ───────────── [  0%]  0 / 3 课
 ```
@@ -46,10 +46,10 @@ Phase 3：Harness 稳定 ───────────── [  0%]  0 / 3 �
 
 #### 第 5 课 — Subagent 系统（`coordinator/`）
 
-- [ ] Step 1：AgentTool — 创建独立 Agent 实例（独立对话历史 + 独立 AbortController）
-- [ ] Step 2：工具过滤 — 按子 Agent 类型只给部分工具（explore 只读、plan 读+写、general 全开）
-- [ ] Step 3：Sync 模式 + 防递归 — 子 Agent 完整运行后返回结果，子 Agent 默认不能调 AgentTool
-- [ ] **Tutorial** → `docs/reflections/lesson-5-subagent-system.md`
+- [x] Step 1：AgentTool — 创建独立 Agent 实例（独立对话历史 + 独立工具集 + 独立 system prompt）
+- [x] Step 2：工具过滤 — 按子 Agent 类型只给部分工具（explore 只读、plan 读+写、general 全开）
+- [x] Step 3：Sync 模式 + 防递归 — 子 Agent 完整运行后返回结果，子 Agent 默认不能调 AgentTool
+- [x] **Tutorial** → `docs/reflections/lesson-5-subagent-system.md`
 
 #### 第 6 课 — Plugin 系统（`services/plugins/`）
 
