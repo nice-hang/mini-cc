@@ -87,6 +87,100 @@ mini-cc 当前阶段只迁移 Skill，不改变 slash command 的语义。`kind:
 
 ## 实现要点
 
+### 注册流程
+
+Skill 在 runtime 启动时会注册两次，但两次注册的对象不同：
+
+```
+createRuntime()
+  ├─ createCommandRegistry()
+  │   ├─ loadCommandsFromDir()
+  │   └─ loadSkillsFromDir()
+  │       └─ SKILL.md -> Command(kind: "skill")
+  │
+  └─ createToolset(commandRegistry)
+      └─ registerSkillTool()
+          └─ Tool(name: "Skill")
+```
+
+第一步是 **注册成 command**。
+
+`loadSkillsFromDir()` 读取 `~/.mini-cc/skills/<dir>/SKILL.md`，直接产出 `Command`：
+
+```typescript
+{
+  type: 'prompt',
+  name: '<目录名>',
+  source: 'skill',
+  kind: 'skill',
+  description,
+  whenToUse,
+  allowedTools,
+  getPromptForCommand(args) { ... },
+}
+```
+
+这里的关键点是：skill 的可调用名来自目录名，不来自 frontmatter `name`。这贴近 claude-code 的做法，目录名才是稳定 identifier。
+
+第二步是 **注册成 tool**。
+
+`registerSkillTool()` 不会把每个 skill 注册成一个独立 tool，而是只注册一个统一入口：
+
+```typescript
+Tool name: Skill
+```
+
+这个 `Skill` tool 的特殊之处在 description。它会从 `CommandRegistry` 里筛出所有 `kind === 'skill'` 的 command，然后把列表拼进 tool description：
+
+```text
+按名加载并执行 Skill。可用 Skill：
+- /review-pr: 审查 PR（适用场景：需要做 code review）
+- /pdf: 处理 PDF 文件 [工具限制：read_file]
+```
+
+因此模型看到的不是一堆动态 tool，而是一个稳定 tool schema 加一段动态 skill 列表。调用时的 tool 名始终是：
+
+```typescript
+Skill({ skill: "review-pr", args: "..." })
+```
+
+### 执行流程
+
+Skill 有两种执行模式，本质都落到同一个 command 的 `getPromptForCommand()`。
+
+第一种是 **主动触发：用户用 slash command 执行**。
+
+```text
+用户输入：/review-pr 123
+  -> parseCommandInvocation()
+  -> CommandRegistry.get("review-pr")
+  -> command.getPromptForCommand("123")
+  -> 展开后的 prompt 作为 user message 进入 query loop
+```
+
+这条路径里不会调用 `Skill` tool。它和普通 slash command 一样，只是 command 的 `kind` 是 `skill`。
+
+第二种是 **被动触发：模型自行调用 Skill tool**。
+
+```text
+模型看到 Tool(name: "Skill") 的 description
+  -> 判断某个 skill 适合当前任务
+  -> tool_use: Skill({ skill: "review-pr", args: "123" })
+  -> SkillTool 从 CommandRegistry.get("review-pr")
+  -> 校验 command.kind === "skill"
+  -> command.getPromptForCommand("123")
+  -> 返回完整 skill 指令给模型
+```
+
+这条路径里，模型调用的 tool 名不是 skill 自己的名字，而是统一的 `Skill`。skill 自己的名字只是 `Skill` tool 输入里的 `skill` 参数。
+
+所以一句话总结：
+
+```text
+Skill 先是 CommandRegistry 里的 prompt command，
+再通过一个统一的 Skill tool 暴露给模型按需加载。
+```
+
 ### Happy Path
 
 1. `loadSkillsFromDir()` 读取 `~/.mini-cc/skills/<dir>/SKILL.md`。

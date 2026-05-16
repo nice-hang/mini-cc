@@ -226,6 +226,96 @@ mini-cc 的全局引用方案虽然不如 claude-code 的依赖注入优雅，�
 
 ## 实现要点
 
+### 注册流程
+
+Subagent 在 runtime 启动时也会经历两层注册，但它和 Skill 的关键区别是：**AgentDefinition 不会注册成 Command**。
+
+```
+createRuntime()
+  └─ createToolset(systemPrompt)
+      ├─ new AgentRegistry(BUILT_IN_AGENTS)
+      ├─ loadAgentsFromDir()
+      │   └─ AGENT.md -> AgentDefinition
+      ├─ agentRegistry.register(agent)
+      └─ registerAgentTool()
+          └─ Tool(name: "AgentTool")
+```
+
+第一步是 **注册成 AgentDefinition**。
+
+`loadAgentsFromDir()` 读取 `~/.mini-cc/agents/<dir>/AGENT.md`，产出：
+
+```typescript
+{
+  name,
+  description,
+  whenToUse,
+  systemPrompt,
+  allowedToolNames,
+}
+```
+
+这些定义进入 `AgentRegistry`，和内置的 `general` / `explore` / `plan` 放在同一个注册表里。它们不会进入 `CommandRegistry`，所以用户不能通过 `/explore ...` 直接执行。
+
+第二步是 **注册成 tool**。
+
+`registerAgentTool()` 不会把每个 agent 注册成一个独立 tool，而是只注册一个统一入口：
+
+```typescript
+Tool name: AgentTool
+```
+
+这个 `AgentTool` 的 description 会把所有可用 Agent 类型拼进去：
+
+```text
+创建一个子 Agent 独立执行任务。可用 Agent 类型：
+- general: 通用 Agent，可使用全部工具执行任意编码任务（适用场景：...）
+- explore: 只读探索 Agent，搜索代码、查阅文档、理解项目结构 [工具限制：read_file, web_search]
+- plan: 可读写文件（无 bash）的规划 Agent [工具限制：read_file, write_file, edit_file]
+```
+
+模型看到的是一个稳定 tool schema，加上一段动态 agent 列表。调用时的 tool 名始终是：
+
+```typescript
+AgentTool({ subagent_type: "explore", prompt: "..." })
+```
+
+在 claude-code 原版里，这个工具的正式名字是 `Agent`，旧 wire name 是 `Task`。mini-cc 当前叫 `AgentTool`，是为了学习阶段更直观地区分它和普通 Agent Loop。
+
+### 执行流程
+
+Subagent 当前只有模型侧执行入口，没有 slash command 主动执行入口。
+
+第一种是 **模型主动委派：调用 AgentTool**。
+
+```text
+模型看到 Tool(name: "AgentTool") 的 description
+  -> 判断任务适合交给某个子 Agent
+  -> tool_use: AgentTool({ subagent_type: "explore", prompt: "查一下 SkillTool 流程" })
+  -> AgentTool 从 AgentRegistry.get("explore")
+  -> filterToolsForAgent(agentDef, allTools)
+  -> runAgent(prompt, agentDef, filteredTools)
+  -> 子 Agent 独立 query loop 运行
+  -> 返回文本结果给父 Agent
+```
+
+第二种是 **用户间接触发：用自然语言要求主 Agent 委派**。
+
+```text
+用户输入：用 explore agent 查一下 SkillTool 怎么注册
+  -> 主 Agent 理解用户意图
+  -> 主 Agent 仍然需要调用 AgentTool(...)
+```
+
+这不是硬语法，而是模型决策。mini-cc 目前没有 `/agent explore ...` 这种直接执行命令。按照 claude-code 的思路，`/agents` 更适合作为管理入口，用来创建、编辑、查看 agent 配置；真正执行仍然通过模型调用 `Agent`/`AgentTool`。
+
+所以一句话总结：
+
+```text
+Subagent 先是 AgentRegistry 里的 AgentDefinition，
+再通过一个统一的 AgentTool 暴露给模型执行。
+```
+
 ### Happy Path
 
 ```
