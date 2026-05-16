@@ -181,6 +181,7 @@ Claude Code 里 SkillTool 主要从 Command 列表中选择 prompt command。min
 **计划模块**：`src/context.ts` 或 `src/context/`
 
 **实现范围**：
+- 先重构 CLI 生命周期：`createRuntime()` 初始化 command/tool/skill/agent/MCP，`runOnce()` 处理一次用户输入
 - 构建基础 system prompt
 - 读取项目 `AGENTS.md` / `CLAUDE.md`
 - 注入 cwd、日期、平台、git branch/status
@@ -188,6 +189,7 @@ Claude Code 里 SkillTool 主要从 Command 列表中选择 prompt command。min
 - 子 Agent 继承上下文
 
 **暂不做**：
+- REPL / TUI / slash command 候选弹窗
 - Prompt caching
 - 大型上下文裁剪
 - 多级 settings / managed policy

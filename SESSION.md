@@ -62,11 +62,42 @@
 
 **课程**：第 6B 课 — Context / System Prompt（`src/context.ts`）
 
+- [x] Step 0：Runtime 生命周期重构 — 提取 `createRuntime()` / `runOnce()`，让初始化和单次执行分离
 - [ ] Step 1：基础 system prompt — mini-cc 身份、工具使用原则、输出约束
 - [ ] Step 2：项目上下文 — 读取 `AGENTS.md` / `CLAUDE.md`，注入 cwd、日期、平台
 - [ ] Step 3：git 上下文 — branch/status/diff 摘要
 - [ ] Step 4：query 接入 — systemContext / userContext 进入主 Agent 和子 Agent
 - [ ] Step 5：写教程 `docs/reflections/lesson-6b-context-system-prompt.md`
+
+**Step 0 设计草图**：
+
+```text
+main()
+  ├─ createRuntime()
+  │   ├─ load commands
+  │   ├─ create tools
+  │   ├─ load skills / agents
+  │   ├─ discover MCP tools
+  │   └─ finalize tools
+  │
+  ├─ readStdin()
+  └─ runOnce(runtime, input)
+      ├─ parse /command
+      ├─ build messages
+      └─ query(...)
+```
+
+**Step 0 边界**：
+- 仍保持单次 CLI，不做 REPL / 命令候选弹窗
+- 不改变现有 command/tool/MCP 行为，只调整生命周期位置
+- `runOnce()` 先接收 `runtime + input`，后续 6B 再接入 `systemContext / userContext`
+- 为后续多轮 REPL 预留结构，但本课不实现循环输入
+
+**Step 0 完成记录**：
+- 新增 `src/cli/runtime.ts`，导出 `createRuntime()` / `runOnce()`。
+- `createRuntime()` 负责 commands、tools、skills、agents、MCP 发现与 `finalizeTools()`。
+- `runOnce()` 负责 slash command 展开、构造 messages、调用 `query()`。
+- `src/cli/index.ts` 瘦身为启动器：检查 key → createRuntime → readStdin → runOnce。
 
 **本课边界**：
 - 不做 Memory，留到第 9 课

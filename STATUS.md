@@ -66,6 +66,7 @@ Phase 3：Harness 稳定 ───────────── [  0%]  0 / 2 �
 
 #### 第 6B 课 — Context / System Prompt（`context.ts`）
 
+- [x] Step 0：Runtime 生命周期重构 — 提取 `createRuntime()` / `runOnce()`，让 command/tool/skill/agent/MCP 初始化先于单次输入执行
 - [ ] Step 1：基础 system prompt — mini-cc 身份、工具使用原则、输出约束
 - [ ] Step 2：项目上下文 — 读取 `AGENTS.md` / `CLAUDE.md`，注入 cwd、日期、平台
 - [ ] Step 3：git 上下文 — branch/status/diff 摘要
