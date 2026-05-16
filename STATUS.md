@@ -8,7 +8,7 @@
 
 ```
 Phase 1：能力骨架（MVP）──────────── [100%]  5 / 5 课
-Phase 1.5：源码边界对齐 ─────────── [ 25%]  1 / 4 课
+Phase 1.5：源码边界对齐 ─────────── [ 50%]  2 / 4 课
 Phase 2：上下文管理 ──────────────── [  0%]  0 / 3 课
 Phase 3：Harness 稳定 ───────────── [  0%]  0 / 2 课
 ```
@@ -67,11 +67,11 @@ Phase 3：Harness 稳定 ───────────── [  0%]  0 / 2 �
 #### 第 6B 课 — Context / System Prompt（`context.ts`）
 
 - [x] Step 0：Runtime 生命周期重构 — 提取 `createRuntime()` / `runOnce()`，让 command/tool/skill/agent/MCP 初始化先于单次输入执行
-- [ ] Step 1：基础 system prompt — mini-cc 身份、工具使用原则、输出约束
-- [ ] Step 2：项目上下文 — 读取 `AGENTS.md` / `CLAUDE.md`，注入 cwd、日期、平台
-- [ ] Step 3：git 上下文 — branch/status/diff 摘要
-- [ ] Step 4：query 接入 — systemContext / userContext 进入主 Agent 和子 Agent
-- [ ] **Tutorial** → `docs/reflections/lesson-6b-context-system-prompt.md`
+- [x] Step 1：基础 system prompt — mini-cc 身份、工具使用原则、输出约束
+- [x] Step 2：项目上下文 — 读取 `AGENTS.md` / `CLAUDE.md`，注入 cwd、日期、平台
+- [x] Step 3：git 上下文 — branch/status/diff 摘要
+- [x] Step 4：query 接入 — systemContext / userContext 进入主 Agent 和子 Agent
+- [x] **Tutorial** → `docs/reflections/lesson-6b-context-system-prompt.md`
 
 #### 第 6C 课 — Skill → Command 迁移（`skills/` + `commands/`）
 

@@ -56,8 +56,9 @@ export function registerSkillTool(
 export function registerAgentTool(
   registry: ToolRegistry,
   agentRegistry: AgentRegistry,
+  parentSystemPrompt?: string,
 ): void {
-  registry.register(createAgentTool(agentRegistry))
+  registry.register(createAgentTool(agentRegistry, { parentSystemPrompt }))
 }
 
 // 在全部工具注册完成后调用，建立 AgentTool 所需的全局工具引用

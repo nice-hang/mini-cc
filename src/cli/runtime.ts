@@ -5,6 +5,7 @@ import pc from 'picocolors'
 import { homedir } from 'os'
 import { join } from 'path'
 import type { Tool } from '../Tool.js'
+import { buildSystemPrompt } from '../context.js'
 import { query, type Terminal } from '../query/query.js'
 import {
   createDefaultTools,
@@ -34,6 +35,7 @@ export interface CliRuntime {
   model: string
   maxTokens: number
   maxTurns: number
+  systemPrompt: string
   commandRegistry: CommandRegistry
   tools: Tool[]
 }
@@ -49,8 +51,9 @@ export type RunOnceResult =
   | { type: 'unknown_command'; commandName: string; availableCommands: string[] }
 
 export async function createRuntime(options: RuntimeOptions): Promise<CliRuntime> {
+  const systemPrompt = await buildSystemPrompt()
   const commandRegistry = await createCommandRegistry()
-  const tools = await createToolset()
+  const tools = await createToolset(systemPrompt)
 
   console.error(pc.dim(`Model: ${options.model}  Tools: ${tools.length}`))
 
@@ -58,6 +61,7 @@ export async function createRuntime(options: RuntimeOptions): Promise<CliRuntime
     model: options.model,
     maxTokens: options.maxTokens,
     maxTurns: options.maxTurns,
+    systemPrompt,
     commandRegistry,
     tools,
   }
@@ -78,6 +82,7 @@ export async function runOnce(
     model: runtime.model,
     maxTokens: runtime.maxTokens,
     maxTurns: runtime.maxTurns,
+    systemPrompt: runtime.systemPrompt,
   })
 
   return { type: 'terminal', terminal }
@@ -97,7 +102,7 @@ async function createCommandRegistry(): Promise<CommandRegistry> {
 }
 
 // 装配工具，Skill、Agent、MCP
-async function createToolset(): Promise<Tool[]> {
+async function createToolset(systemPrompt: string): Promise<Tool[]> {
   const toolRegistry = createDefaultTools()
 
   // Skill / Agent / MCP 都属于 runtime 能力，启动时装配一次，单次输入只负责消费。
@@ -112,7 +117,7 @@ async function createToolset(): Promise<Tool[]> {
   const agentRegistry = new AgentRegistry(BUILT_IN_AGENTS)
   const fileAgents = await loadAgentsFromDir(agentsDir)
   fileAgents.forEach(agent => agentRegistry.register(agent))
-  registerAgentTool(toolRegistry, agentRegistry)
+  registerAgentTool(toolRegistry, agentRegistry, systemPrompt)
   if (fileAgents.length > 0) {
     console.error(pc.dim(`Agents: ${fileAgents.map(a => a.name).join(', ')}`))
   }

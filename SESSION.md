@@ -13,7 +13,7 @@
 
 **当前阶段**：Phase 1.5 — 源码边界对齐
 
-**上节课完成**：第 6A 课 — Command 系统（全部 5 个 Step + Tutorial 完成）
+**上节课完成**：第 6B 课 — Context / System Prompt（全部 5 个 Step + Tutorial 完成）
 
 **本次路线复盘结论**：
 - 不回退 Lesson 1-5。已完成代码是 Happy Path 学习资产，后续在上面迁移和补强。
@@ -41,6 +41,13 @@
 - 参数替换支持 `$ARGUMENTS`、`$ARGUMENTS[0]`、`$0`、`$name`、`${name}`。
 - 教程已写入 `docs/reflections/lesson-6a-command-system.md`。
 
+**第 6B 课完成内容**：
+- 新增 `src/context.ts`，构建基础 system prompt、项目指令、cwd/date/platform、git branch/status/diff stat。
+- 新增并使用 `src/cli/runtime.ts` 的 `createRuntime()` / `runOnce()`，初始化先于单次输入执行。
+- 主 Agent 调 `query()` 时传入 `runtime.systemPrompt`。
+- AgentTool 启动子 Agent 时继承父级 system prompt，并追加子 Agent 自己的角色指令。
+- 教程已写入 `docs/reflections/lesson-6b-context-system-prompt.md`。
+
 **关键源码参考**：
 - `../claude-code/src/commands.ts` — Command 汇总入口
 - `../claude-code/src/types/command.ts` — Command 类型
@@ -51,8 +58,8 @@
 
 **已更新文档**：
 - `ROADMAP.md` — 改为迁移式路线，新增 Phase 1.5
-- `STATUS.md` — Phase 1.5 标记 1/4 完成，第 6A 课完成
-- `SESSION.md` — 当前手写交接改为 Context / System Prompt 计划
+- `STATUS.md` — Phase 1.5 标记 2/4 完成，第 6B 课完成
+- `SESSION.md` — 当前手写交接改为 Skill → Command 迁移计划
 
 ---
 
@@ -60,53 +67,21 @@
 
 > 当前 Session 要完成的内容。每完成一步就勾选。
 
-**课程**：第 6B 课 — Context / System Prompt（`src/context.ts`）
+**课程**：第 6C 课 — Skill → Command 迁移（`skills/` + `commands/`）
 
-- [x] Step 0：Runtime 生命周期重构 — 提取 `createRuntime()` / `runOnce()`，让初始化和单次执行分离
-- [ ] Step 1：基础 system prompt — mini-cc 身份、工具使用原则、输出约束
-- [ ] Step 2：项目上下文 — 读取 `AGENTS.md` / `CLAUDE.md`，注入 cwd、日期、平台
-- [ ] Step 3：git 上下文 — branch/status/diff 摘要
-- [ ] Step 4：query 接入 — systemContext / userContext 进入主 Agent 和子 Agent
-- [ ] Step 5：写教程 `docs/reflections/lesson-6b-context-system-prompt.md`
-
-**Step 0 设计草图**：
-
-```text
-main()
-  ├─ createRuntime()
-  │   ├─ load commands
-  │   ├─ create tools
-  │   ├─ load skills / agents
-  │   ├─ discover MCP tools
-  │   └─ finalize tools
-  │
-  ├─ readStdin()
-  └─ runOnce(runtime, input)
-      ├─ parse /command
-      ├─ build messages
-      └─ query(...)
-```
-
-**Step 0 边界**：
-- 仍保持单次 CLI，不做 REPL / 命令候选弹窗
-- 不改变现有 command/tool/MCP 行为，只调整生命周期位置
-- `runOnce()` 先接收 `runtime + input`，后续 6B 再接入 `systemContext / userContext`
-- 为后续多轮 REPL 预留结构，但本课不实现循环输入
-
-**Step 0 完成记录**：
-- 新增 `src/cli/runtime.ts`，导出 `createRuntime()` / `runOnce()`。
-- `createRuntime()` 负责 commands、tools、skills、agents、MCP 发现与 `finalizeTools()`。
-- `runOnce()` 负责 slash command 展开、构造 messages、调用 `query()`。
-- `src/cli/index.ts` 瘦身为启动器：检查 key → createRuntime → readStdin → runOnce。
+- [ ] Step 1：`skillToCommand()` — 保留现有 Skill loader，新增适配层
+- [ ] Step 2：SkillTool 改造 — 从 CommandRegistry 中筛选 skill command
+- [ ] Step 3：兼容现有目录 — `~/.mini-cc/skills/*/SKILL.md` 不破坏
+- [ ] Step 4：对照修正 — 教程补充 Claude Code 中 Skill 与 Command 的关系
+- [ ] Step 5：写教程 `docs/reflections/lesson-6c-skill-command-migration.md`
 
 **本课边界**：
-- 不做 Memory，留到第 9 课
-- 不做 Auto-Compact，留到第 8 课
-- 不做权限系统，留到第 12 课
-- 不把 AGENTS.md 全量塞进每轮 tool_result，只作为 system/user context 输入
+- 不删除现有 `src/skills/loader.ts`
+- 不改变 `~/.mini-cc/skills/*/SKILL.md` 目录格式
+- 不做 Plugin，留到第 7 课
+- 先让 Skill 成为 CommandRegistry 的一种来源，再考虑模型侧 SkillTool 发现策略
 
 **参考源码**：
-- `../claude-code/src/context.ts`
-- `../claude-code/src/constants/prompts.ts`
-- `../claude-code/src/utils/git.ts`
-- `../claude-code/src/utils/messages.ts`
+- `../claude-code/src/skills/loadSkillsDir.ts`
+- `../claude-code/packages/builtin-tools/src/tools/SkillTool/SkillTool.ts`
+- `../claude-code/src/commands.ts`

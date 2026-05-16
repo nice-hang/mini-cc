@@ -174,7 +174,7 @@ Claude Code 里 SkillTool 主要从 Command 列表中选择 prompt command。min
 
 ---
 
-### 第 6B 课：Context / System Prompt
+### 第 6B 课：Context / System Prompt（已完成）
 
 **本质**：Context 是 Agent 看世界的方式。工具给 Agent 手，Context 给 Agent 眼睛和记忆。
 
@@ -371,8 +371,8 @@ Claude Code 里 SkillTool 主要从 Command 列表中选择 prompt command。min
 | 4 | Skill 独立系统 | 已完成，后续迁移 |
 | 5 | Subagent | 已完成 |
 | 6A | Command 系统 | 已完成 |
-| 6B | Context / System Prompt | 下一课 |
-| 6C | Skill → Command 迁移 | 待做 |
+| 6B | Context / System Prompt | 已完成 |
+| 6C | Skill → Command 迁移 | 下一课 |
 | 7 | Plugin 系统 | 待做 |
 | 8 | Auto-Compact | 待做 |
 | 9 | Memory | 待做 |
