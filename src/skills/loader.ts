@@ -1,13 +1,14 @@
-// Skill 发现：目录扫描 + frontmatter 解析
+// Skill Command 发现：目录扫描 SKILL.md，直接注册为 prompt command
 //
 // 只支持 `~/.mini-cc/skills/<skill-name>/SKILL.md` 格式
-// frontmatter 字段：name / description / when_to_use / allowed_tools / arguments
+// frontmatter 字段：description / when_to_use / allowed-tools / arguments / context
 //
 // 参考 claude-code：src/skills/loadSkillsDir.ts
 
 import { readdir, readFile, stat } from 'fs/promises'
 import { join } from 'path'
-import type { Skill } from './types.js'
+import type { Command } from '../commands/types.js'
+import { parseArgumentNames, substituteArguments } from '../commands/arguments.js'
 
 // ─── Frontmatter 解析（轻量，不依赖 yaml 库） ─────────────────
 
@@ -45,7 +46,7 @@ function parseFrontmatter(raw: string): { frontmatter: Record<string, unknown>; 
 
 // ─── 目录扫描 ──────────────────────────────────────────────────
 
-export async function loadSkillsFromDir(skillsDir: string): Promise<Skill[]> {
+export async function loadSkillsFromDir(skillsDir: string): Promise<Command[]> {
   let entries: string[]
   try {
     entries = await readdir(skillsDir)
@@ -54,7 +55,7 @@ export async function loadSkillsFromDir(skillsDir: string): Promise<Skill[]> {
   }
 
   const results = await Promise.all(
-    entries.map(async (entry): Promise<Skill | null> => {
+    entries.map(async (entry): Promise<Command | null> => {
       const skillDir = join(skillsDir, entry)
       let entryStat
       try {
@@ -73,27 +74,51 @@ export async function loadSkillsFromDir(skillsDir: string): Promise<Skill[]> {
       }
 
       const { frontmatter, content } = parseFrontmatter(raw)
-      const name = (frontmatter.name as string) || entry
+      // 和 claude-code 一样，skill 的可调用名来自目录名，frontmatter.name 只作为展示名保留给后续 UI。
+      const name = entry
+      const description = (frontmatter.description as string) || ''
+      if (!description) return null
 
       const ctx = frontmatter.context as string | undefined
+      const argumentNames = parseArgumentNames(frontmatter.arguments)
       return {
+        type: 'prompt',
         name,
-        description: (frontmatter.description as string) || '',
+        description,
+        source: 'skill',
+        kind: 'skill',
         whenToUse: frontmatter.when_to_use as string | undefined,
-        content,
-        allowedTools: Array.isArray(frontmatter.allowed_tools)
-          ? (frontmatter.allowed_tools as string[])
-          : undefined,
-        baseDir: skillDir,
-        argumentNames: Array.isArray(frontmatter.arguments)
-          ? (frontmatter.arguments as string[])
-          : typeof frontmatter.arguments === 'string'
-            ? (frontmatter.arguments as string).split(',').map(s => s.trim())
-            : undefined,
+        allowedTools: parseStringList(frontmatter['allowed-tools'] ?? frontmatter.allowed_tools),
+        argumentNames: argumentNames.length > 0 ? argumentNames : undefined,
         context: ctx === 'fork' ? 'fork' : 'inline',
+        contentLength: content.length,
+        async getPromptForCommand(args: string): Promise<string> {
+          let finalContent = substituteArguments(
+            content,
+            args,
+            argumentNames,
+          )
+
+          // Skill 资源常和 SKILL.md 同目录放在一起，保留官方的目录变量约定。
+          finalContent = finalContent.replace(/\$\{CLAUDE_SKILL_DIR\}/g, skillDir)
+
+          return finalContent
+        },
       }
     }),
   )
 
-  return results.filter((s): s is Skill => s !== null && !!s.description)
+  return results.filter((command): command is Command => command !== null)
+}
+
+function parseStringList(value: unknown): string[] | undefined {
+  if (Array.isArray(value)) {
+    const items = value.map(String).map(s => s.trim()).filter(Boolean)
+    return items.length > 0 ? items : undefined
+  }
+  if (typeof value === 'string') {
+    const items = value.split(',').map(s => s.trim()).filter(Boolean)
+    return items.length > 0 ? items : undefined
+  }
+  return undefined
 }

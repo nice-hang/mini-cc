@@ -8,9 +8,14 @@
 // 参考 claude-code：packages/builtin-tools/src/tools/SkillTool/
 
 import { buildTool } from '../../Tool.js'
-import type { Skill } from '../../skills/types.js'
+import type { CommandRegistry } from '../../commands/registry.js'
+import type { Command } from '../../commands/types.js'
 
-function buildSkillListing(skills: Skill[]): string {
+function getSkillCommands(commandRegistry: CommandRegistry): Command[] {
+  return commandRegistry.getAll().filter(command => command.kind === 'skill')
+}
+
+function buildSkillListing(skills: Command[]): string {
   if (skills.length === 0) return ''
 
   return skills.map(s => {
@@ -23,8 +28,8 @@ function buildSkillListing(skills: Skill[]): string {
   }).join('\n')
 }
 
-export function createSkillTool(skills: Skill[]) {
-  const listing = buildSkillListing(skills)
+export function createSkillTool(commandRegistry: CommandRegistry) {
+  const listing = buildSkillListing(getSkillCommands(commandRegistry))
 
   return buildTool({
     name: 'Skill',
@@ -42,35 +47,15 @@ export function createSkillTool(skills: Skill[]) {
     },
 
     async call(input: Record<string, unknown>): Promise<string> {
-      const name = input.skill as string
+      const rawName = input.skill as string
+      const name = rawName.startsWith('/') ? rawName.slice(1) : rawName
       const args = input.args as string | undefined
-      const skill = skills.find(s => s.name === name)
-      if (!skill) return `错误：未找到 Skill "${name}"`
-
-      let content = skill.content
-
-      // 替换 ${CLAUDE_SKILL_DIR} 为 skill 所在目录
-      if (skill.baseDir) {
-        content = content.replace(/\$\{CLAUDE_SKILL_DIR\}/g, skill.baseDir)
+      const command = commandRegistry.get(name)
+      if (!command || command.kind !== 'skill') {
+        return `错误：未找到 Skill "${name}"`
       }
 
-      // 替换 $ARGUMENTS 为传入的参数
-      if (args !== undefined) {
-        content = content.replace(/\$ARGUMENTS/g, args)
-
-        // 按参数名替换：$1, $2 等对应 argumentNames 中的位置
-        if (skill.argumentNames && args) {
-          const argParts = args.split(/\s+/)
-          for (let i = 0; i < skill.argumentNames.length; i++) {
-            const val = argParts[i] || ''
-            content = content.replace(
-              new RegExp(`\\$\\{${skill.argumentNames[i]}\\}`, 'g'),
-              val,
-            )
-          }
-        }
-      }
-
+      const content = await command.getPromptForCommand(args || '')
       return `--- /${name} ---\n${content}\n---`
     },
 

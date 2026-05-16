@@ -53,7 +53,7 @@ export type RunOnceResult =
 export async function createRuntime(options: RuntimeOptions): Promise<CliRuntime> {
   const systemPrompt = await buildSystemPrompt()
   const commandRegistry = await createCommandRegistry()
-  const tools = await createToolset(systemPrompt)
+  const tools = await createToolset(systemPrompt, commandRegistry)
 
   console.error(pc.dim(`Model: ${options.model}  Tools: ${tools.length}`))
 
@@ -94,24 +94,29 @@ async function createCommandRegistry(): Promise<CommandRegistry> {
   const fileCommands = await loadCommandsFromDir(commandsDir)
   fileCommands.forEach(command => commandRegistry.register(command))
 
+  const skillsDir = process.env.SKILLS_DIR || join(homedir(), '.mini-cc', 'skills')
+  const skillCommands = await loadSkillsFromDir(skillsDir)
+  skillCommands.forEach(command => commandRegistry.register(command))
+
   if (fileCommands.length > 0) {
     console.error(pc.dim(`Commands: ${fileCommands.map(c => `/${c.name}`).join(', ')}`))
+  }
+  if (skillCommands.length > 0) {
+    console.error(pc.dim(`Skills: ${skillCommands.map(s => s.name).join(', ')}`))
   }
 
   return commandRegistry
 }
 
 // 装配工具，Skill、Agent、MCP
-async function createToolset(systemPrompt: string): Promise<Tool[]> {
+async function createToolset(
+  systemPrompt: string,
+  commandRegistry: CommandRegistry,
+): Promise<Tool[]> {
   const toolRegistry = createDefaultTools()
 
   // Skill / Agent / MCP 都属于 runtime 能力，启动时装配一次，单次输入只负责消费。
-  const skillsDir = process.env.SKILLS_DIR || join(homedir(), '.mini-cc', 'skills')
-  const skills = await loadSkillsFromDir(skillsDir)
-  registerSkillTool(toolRegistry, skills)
-  if (skills.length > 0) {
-    console.error(pc.dim(`Skills: ${skills.map(s => s.name).join(', ')}`))
-  }
+  registerSkillTool(toolRegistry, commandRegistry)
 
   const agentsDir = process.env.AGENTS_DIR || join(homedir(), '.mini-cc', 'agents')
   const agentRegistry = new AgentRegistry(BUILT_IN_AGENTS)

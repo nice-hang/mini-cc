@@ -11,10 +11,10 @@ import { bashTool } from './services/tools/bash.js'
 import { webSearchTool } from './services/tools/web_search.js'
 import { webFetchTool } from './services/tools/web_fetch.js'
 import type { McpClient } from './services/mcp/client.js'
-import type { Skill } from './skills/types.js'
 import { createSkillTool } from './services/tools/skill.js'
 import { createAgentTool, updateAllTools } from './services/tools/agent.js'
 import type { AgentRegistry } from './coordinator/agents.js'
+import type { CommandRegistry } from './commands/registry.js'
 
 export function createDefaultTools(): ToolRegistry {
   const registry = new ToolRegistry()
@@ -45,10 +45,11 @@ export async function registerMcpTools(
 // 模型通过 Skill({skill: "name"}) 获取 skill 完整指令
 export function registerSkillTool(
   registry: ToolRegistry,
-  skills: Skill[],
+  commandRegistry: CommandRegistry,
 ): void {
+  const skills = commandRegistry.getAll().filter(command => command.kind === 'skill')
   if (skills.length === 0) return
-  registry.register(createSkillTool(skills))
+  registry.register(createSkillTool(commandRegistry))
 }
 
 // 注册 AgentTool：把 agent 注册表中的所有 Agent 包装成一个工具暴露给模型

@@ -8,7 +8,7 @@
 
 ```
 Phase 1：能力骨架（MVP）──────────── [100%]  5 / 5 课
-Phase 1.5：源码边界对齐 ─────────── [ 50%]  2 / 4 课
+Phase 1.5：源码边界对齐 ─────────── [ 75%]  3 / 4 课
 Phase 2：上下文管理 ──────────────── [  0%]  0 / 3 课
 Phase 3：Harness 稳定 ───────────── [  0%]  0 / 2 课
 ```
@@ -75,11 +75,11 @@ Phase 3：Harness 稳定 ───────────── [  0%]  0 / 2 �
 
 #### 第 6C 课 — Skill → Command 迁移（`skills/` + `commands/`）
 
-- [ ] Step 1：`skillToCommand()` — 保留现有 Skill loader，新增适配层
-- [ ] Step 2：SkillTool 改造 — 从 CommandRegistry 中筛选 skill command
-- [ ] Step 3：兼容现有目录 — `~/.mini-cc/skills/*/SKILL.md` 不破坏
-- [ ] Step 4：对照修正 — 教程补充 Claude Code 中 Skill 与 Command 的关系
-- [ ] **Tutorial** → `docs/reflections/lesson-6c-skill-command-migration.md`
+- [x] Step 1：Skill loader 直接返回 `Command[]`，不保留独立 Skill 类型
+- [x] Step 2：SkillTool 改造 — 从 CommandRegistry 中筛选 skill command
+- [x] Step 3：兼容现有目录 — `~/.mini-cc/skills/*/SKILL.md` 不破坏
+- [x] Step 4：对照修正 — 教程补充 Claude Code 中 Skill 与 Command 的关系
+- [x] **Tutorial** → `docs/reflections/lesson-6c-skill-command-migration.md`
 
 #### 第 7 课 — Plugin 系统（`services/plugins/`）
 
