@@ -9,76 +9,50 @@
 
 > 上次 Session 结束时更新的内容。下个 Session 最先读这里。
 
-**最后更新**：2026-05-15
+**最后更新**：2026-05-16
 
-**当前阶段**：Phase 1 第 5 课 — Subagent 系统（全部完成）
+**当前阶段**：Phase 1.5 — 源码边界对齐
 
-**上节课完成**：第 5 课 — Subagent 系统（全部 3 个 Step + Tutorial 完成）
+**上节课完成**：第 6A 课 — Command 系统（全部 5 个 Step + Tutorial 完成）
 
-**关键决策**：
-- AgentTool 使用 Sync 模式：子 Agent 在父 Agent 工具执行阶段同步运行，结果通过 tool_result 返回
-- 防递归通过工具列表过滤实现（AgentTool 不进入子 Agent 的工具列表），而非提示词约束
-- 工具过滤分两层：防递归（硬约束）+ 类型限制（白名单）
-- 三种内置 Agent 类型：general（全工具）、explore（只读）、plan（读写无 bash）
-- AgentTool 需要一个全局 allTools 引用，在全部工具注册完成后通过 `finalizeTools()` 设置
-- runAgent 核心逻辑只有 40 行：filterTools → create messages → query() → collect text
+**本次路线复盘结论**：
+- 不回退 Lesson 1-5。已完成代码是 Happy Path 学习资产，后续在上面迁移和补强。
+- 暂缓 Plugin。Claude Code 的 Plugin 不是“任意 Tool 插件”，而是扩展组件包，主要贡献 commands / skills / agents / hooks / MCP / LSP / output-styles。
+- Command 系统已补齐。Claude Code 里 Skill 更接近一种 prompt command，Plugin 也依赖 command/skill/agent 这些组件的统一加载。
+- Context / System Prompt 需要提前。Agent 像不像 Claude Code，关键不只是工具循环，还包括 AGENTS/CLAUDE.md、cwd、git 状态、日期、memory 如何进入提示词。
 
-**设计理由**：
-- 函数式隔离：query() 接收全部参数、不依赖全局状态 → 子 Agent = 一次函数调用
-- Tool 接口足够表达"启动一个 Agent" → 不引入新范式
-- Sync 模式够简单，async 模式需要 task/notification 系统
+**前 5 课保留现状**：
+- Lesson 1：Agent Loop + Streaming API 已完成
+- Lesson 2：Tool 系统 + 核心工具已完成
+- Lesson 3：MCP HTTP Happy Path 已完成
+- Lesson 4：Skill 独立系统已完成，后续迁移到 Command 模型
+- Lesson 5：Subagent 系统已完成
 
-**已完成**（Step 1 ~ Step 3 + Tutorial）：
-- `src/coordinator/types.ts` — AgentDefinition 类型
-- `src/coordinator/agents.ts` — 三种内置 Agent 定义
-- `src/coordinator/toolFilter.ts` — 双层工具过滤
-- `src/coordinator/runAgent.ts` — 子 Agent 执行器
-- `src/services/tools/agent.ts` — AgentTool（Tool 包装）
-- `src/tools.ts` — registerAgentTool + finalizeTools
-- `src/cli/index.ts` — AgentTool 注册 + finalize
-- `docs/reflections/lesson-5-subagent-system.md` — 教程
+**迁移策略**：
+- 已实现 `src/commands/`，暂未改动现有 SkillTool。
+- 下一步做 Context / System Prompt，再做 `skillToCommand()` 适配层。
+- SkillTool 再从 CommandRegistry 里筛选 skill command，而不是直接依赖独立 Skill 列表。
+- Plugin 最后接入 commands / skills / agents / MCP，不把“直接注册 Tool”作为主目标。
 
-**尝试过但排除的方案**：
-- Async 模式：需要 task 注册表和跨轮次消息通知，超出当前范围
-- AbortController 独立管理：子 Agent 同步运行在工具执行阶段，父 Agent 的 AbortController 自然 cascade
-- 文件系统加载自定义 Agent：只用硬编码的三种内置类型，够用
+**第 6A 课完成内容**：
+- 新增 `src/commands/`：PromptCommand 类型、CommandRegistry、内置命令、Markdown command loader、slash command 解析。
+- CLI 支持 `/command args`：命中后展开成 command prompt，再进入现有 `query()`。
+- 支持 `~/.mini-cc/commands/*.md`，frontmatter 字段包括 `description` / `arguments` / `allowed-tools`。
+- 参数替换支持 `$ARGUMENTS`、`$ARGUMENTS[0]`、`$0`、`$name`、`${name}`。
+- 教程已写入 `docs/reflections/lesson-6a-command-system.md`。
 
-**下一步**：
-第 6 课 — Plugin 系统（services/plugins/）：扫描目录 → manifest 解析 → 多子系统统一注册（Tool / Skill / Command / MCP）
+**关键源码参考**：
+- `../claude-code/src/commands.ts` — Command 汇总入口
+- `../claude-code/src/types/command.ts` — Command 类型
+- `../claude-code/src/skills/loadSkillsDir.ts` — Skill 作为 command 的加载方式
+- `../claude-code/packages/builtin-tools/src/tools/SkillTool/SkillTool.ts` — SkillTool 从 commands 中执行 prompt
+- `../claude-code/src/utils/plugins/loadPluginCommands.ts` — Plugin command/skill loader
+- `../claude-code/src/utils/plugins/refresh.ts` — Plugin active components refresh
 
-**关键决策**：
-- Skill 不走 system prompt 注入，改为 Skill Tool 的 description 字段暴露 — 零固定 token 开销，模型决定调 tool 时才读到技能列表
-- Skill frontmatter 用纯 regex 解析，不引入 yaml 库
-- Skill 目录固定为 `~/.mini-cc/skills/<name>/SKILL.md`
-- 无 skill 时 Skill Tool 不注册，零开销
-- Variable substitution: `${CLAUDE_SKILL_DIR}` → skill baseDir, `$ARGUMENTS` → args 参数, `${name}` → 命名参数
-- Allowed-tools：**软约束方案** —— Skill Tool 的 description 中告知模型建议使用的工具（`[工具限制：...]`），不拦截实际调用。模型始终能看到全部工具。这与 claude-code 的 inline 模式一致（claude-code 用 `contextModifier` 改 `alwaysAllowRules` 做权限自动批准，不改工具可见性）
-- `context` 字段（`'inline' | 'fork'`）已添加到 Skill 接口，fork 模式需等第 5 课 subagent 系统完成后实现
-
-**设计理由（对比 system prompt 注入方案）**：
-- System prompt 注入：有 skill 就固定占 token，信息与 Skill Tool 描述重复
-- Skill Tool description：无 skill 零开销，单一数据源，模型主动发现（同 claude-code 设计）
-
-**已完成**（Step 1 ~ Step 3）：
-- `src/skills/types.ts` — Skill 接口定义（含 context 字段）
-- `src/skills/loader.ts` — 目录扫描 + frontmatter 解析
-- `src/services/tools/skill.ts` — Skill Tool（description 列表 + call 加载 + 变量替换）
-- `src/skills/index.ts` — 公开 API
-- `src/tools.ts` — 新增 `registerSkillTool()` 辅助函数
-- `src/cli/index.ts` — 启动时加载 skills → 注册 Skill Tool
-- `~/.mini-cc/skills/example/SKILL.md` — 示例 skill
-- `CLAUDE.md` — 实现原则 3：以 claude-code 源码为准
-
-**已废弃/撤回**：
-- `src/query/query.ts` 中的 `activeSkillName` 追踪和工具列表过滤 — 与 claude-code 的 inline 模式不符（claude-code 不做硬过滤），已删除
-
-**尝试过但排除的方案**：
-- System prompt 注入技能列表 → Skill Tool description 更简洁，零固定 token 开销
-- yaml 库解析 frontmatter → 纯 regex 就够了
-- `injector.ts` → 已删除，不再需要
-
-**下一步**：
-第 5 课 — Subagent 系统：AgentTool 创建独立子 Agent
+**已更新文档**：
+- `ROADMAP.md` — 改为迁移式路线，新增 Phase 1.5
+- `STATUS.md` — Phase 1.5 标记 1/4 完成，第 6A 课完成
+- `SESSION.md` — 当前手写交接改为 Context / System Prompt 计划
 
 ---
 
@@ -86,13 +60,22 @@
 
 > 当前 Session 要完成的内容。每完成一步就勾选。
 
-**课程**：第 5 课 — Subagent 系统（`src/coordinator/`）
+**课程**：第 6B 课 — Context / System Prompt（`src/context.ts`）
 
-- [x] Step 1：AgentTool — 创建独立 Agent 实例（独立对话历史 + 独立工具集 + 独立 system prompt）
-- [x] Step 2：工具过滤 — 按子 Agent 类型只给部分工具（explore 只读、plan 读+写、general 全开）
-- [x] Step 3：Sync 模式 + 防递归 — 子 Agent 完整运行后返回结果，子 Agent 默认不能调 AgentTool
-- [x] **Tutorial** → `docs/reflections/lesson-5-subagent-system.md`
+- [ ] Step 1：基础 system prompt — mini-cc 身份、工具使用原则、输出约束
+- [ ] Step 2：项目上下文 — 读取 `AGENTS.md` / `CLAUDE.md`，注入 cwd、日期、平台
+- [ ] Step 3：git 上下文 — branch/status/diff 摘要
+- [ ] Step 4：query 接入 — systemContext / userContext 进入主 Agent 和子 Agent
+- [ ] Step 5：写教程 `docs/reflections/lesson-6b-context-system-prompt.md`
+
+**本课边界**：
+- 不做 Memory，留到第 9 课
+- 不做 Auto-Compact，留到第 8 课
+- 不做权限系统，留到第 12 课
+- 不把 AGENTS.md 全量塞进每轮 tool_result，只作为 system/user context 输入
 
 **参考源码**：
-- `deps/claude-code/packages/builtin-tools/src/tools/AgentTool/` — AgentTool 实现
-- `deps/claude-code/src/coordinator/` — 协调器定义
+- `../claude-code/src/context.ts`
+- `../claude-code/src/constants/prompts.ts`
+- `../claude-code/src/utils/git.ts`
+- `../claude-code/src/utils/messages.ts`

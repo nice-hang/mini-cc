@@ -18,6 +18,12 @@ import { AgentRegistry, BUILT_IN_AGENTS } from '../coordinator/agents.js'
 import { loadAgentsFromDir } from '../coordinator/loader.js'
 import { McpClient } from '../services/mcp/index.js'
 import { loadSkillsFromDir } from '../skills/index.js'
+import {
+  BUILT_IN_COMMANDS,
+  CommandRegistry,
+  loadCommandsFromDir,
+  parseCommandInvocation,
+} from '../commands/index.js'
 import { homedir } from 'os'
 import { join } from 'path'
 
@@ -49,6 +55,30 @@ async function main() {
   if (!input) {
     console.error(pc.dim('Pipe input: echo "your question" | npm run dev'))
     process.exit(1)
+  }
+
+  // ── Command 系统 ───────────────────────────────────────────────
+  // slash command 是 prompt 模板：先展开成普通用户消息，再进入 query loop
+  const commandRegistry = new CommandRegistry(BUILT_IN_COMMANDS)
+  const commandsDir = process.env.COMMANDS_DIR || join(homedir(), '.mini-cc', 'commands')
+  const fileCommands = await loadCommandsFromDir(commandsDir)
+  fileCommands.forEach(command => commandRegistry.register(command))
+  if (fileCommands.length > 0) {
+    console.error(pc.dim(`Commands: ${fileCommands.map(c => `/${c.name}`).join(', ')}`))
+  }
+
+  const invocation = parseCommandInvocation(input)
+  let userContent = input
+  if (invocation) {
+    const command = commandRegistry.get(invocation.commandName)
+    if (!command) {
+      const available = commandRegistry.getAll().map(c => `/${c.name}`).join(', ')
+      console.error(pc.red(`Unknown command: /${invocation.commandName}`))
+      console.error(pc.dim(`Available commands: ${available}`))
+      process.exit(1)
+    }
+    userContent = await command.getPromptForCommand(invocation.args)
+    console.error(pc.dim(`Command: /${command.name} (${command.source})`))
   }
 
   // 装配内置工具
@@ -103,7 +133,7 @@ async function main() {
 
   console.error(pc.dim(`Model: ${MODEL}  Tools: ${tools.length}`))
 
-  const messages: MessageParam[] = [{ role: 'user', content: input }]
+  const messages: MessageParam[] = [{ role: 'user', content: userContent }]
   const terminal = await query(messages, tools, (event) => {
     if (event.type === 'text_delta') process.stdout.write(event.text)
   }, { model: MODEL, maxTokens: MAX_TOKENS, maxTurns: MAX_TURNS })

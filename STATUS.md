@@ -1,15 +1,16 @@
 # mini-cc 实现状态
 
-> 最后更新：2026-05-15
+> 最后更新：2026-05-16
 > 规划详见 ROADMAP.md，当前课程计划详见 SESSION.md
 > 每课拆分子步骤跟踪，支持跨 Session 渐进；**每课最后一步是写教程**。
 
-## 三阶段进度
+## 阶段进度
 
 ```
-Phase 1：能力骨架（MVP）──────────── [ 83%]  5 / 6 课
+Phase 1：能力骨架（MVP）──────────── [100%]  5 / 5 课
+Phase 1.5：源码边界对齐 ─────────── [ 25%]  1 / 4 课
 Phase 2：上下文管理 ──────────────── [  0%]  0 / 3 课
-Phase 3：Harness 稳定 ───────────── [  0%]  0 / 3 课
+Phase 3：Harness 稳定 ───────────── [  0%]  0 / 2 课
 ```
 
 ### Phase 1：能力骨架（MVP）
@@ -51,60 +52,83 @@ Phase 3：Harness 稳定 ───────────── [  0%]  0 / 3 �
 - [x] Step 3：Sync 模式 + 防递归 — 子 Agent 完整运行后返回结果，子 Agent 默认不能调 AgentTool
 - [x] **Tutorial** → `docs/reflections/lesson-5-subagent-system.md`
 
-#### 第 6 课 — Plugin 系统（`services/plugins/`）
+### Phase 1.5：源码边界对齐
+
+> 不回退 Lesson 1-5，在现有代码上补齐 Claude Code 源码里的中间层。
+
+#### 第 6A 课 — Command 系统（`commands/`）
+
+- [x] Step 1：Command 类型 — prompt command 的 name / description / source / allowedTools / getPromptForCommand
+- [x] Step 2：CommandRegistry — 内置命令 + 文件命令统一注册
+- [x] Step 3：Markdown command loader — `~/.mini-cc/commands/*.md` frontmatter + 变量替换
+- [x] Step 4：CLI 调用 — 识别 `/command args`，把 command prompt 注入现有 query loop
+- [x] **Tutorial** → `docs/reflections/lesson-6a-command-system.md`
+
+#### 第 6B 课 — Context / System Prompt（`context.ts`）
+
+- [ ] Step 1：基础 system prompt — mini-cc 身份、工具使用原则、输出约束
+- [ ] Step 2：项目上下文 — 读取 `AGENTS.md` / `CLAUDE.md`，注入 cwd、日期、平台
+- [ ] Step 3：git 上下文 — branch/status/diff 摘要
+- [ ] Step 4：query 接入 — systemContext / userContext 进入主 Agent 和子 Agent
+- [ ] **Tutorial** → `docs/reflections/lesson-6b-context-system-prompt.md`
+
+#### 第 6C 课 — Skill → Command 迁移（`skills/` + `commands/`）
+
+- [ ] Step 1：`skillToCommand()` — 保留现有 Skill loader，新增适配层
+- [ ] Step 2：SkillTool 改造 — 从 CommandRegistry 中筛选 skill command
+- [ ] Step 3：兼容现有目录 — `~/.mini-cc/skills/*/SKILL.md` 不破坏
+- [ ] Step 4：对照修正 — 教程补充 Claude Code 中 Skill 与 Command 的关系
+- [ ] **Tutorial** → `docs/reflections/lesson-6c-skill-command-migration.md`
+
+#### 第 7 课 — Plugin 系统（`services/plugins/`）
 
 - [ ] Step 1：Plugin 发现 — 目录扫描 + manifest 解析
-- [ ] Step 2：多子系统注册 — Tool / Skill / Command / MCP 统一注册入口
-- [ ] Step 3：Plugin 激活 + 隔离 — 加载 → 注册 → 连接 → 作用域命名
-- [ ] **Tutorial** → `docs/reflections/lesson-6-plugin-system.md`
+- [ ] Step 2：组件注册 — commands / skills / agents / hooks / MCP
+- [ ] Step 3：Plugin 激活 + 隔离 — enabled/disabled + `pluginName:componentName` 命名空间
+- [ ] Step 4：Plugin refresh — 重新加载组件，不重启主 Agent
+- [ ] **Tutorial** → `docs/reflections/lesson-7-plugin-system.md`
 
 ### Phase 2：上下文管理
 
-#### 第 7 课 — 上下文压缩（`services/compact/`）
+#### 第 8 课 — 上下文压缩（`services/compact/`）
 
 - [ ] Step 1：Token 估算 — 按模型 tokenizer 估算当前上下文用量
 - [ ] Step 2：触发阈值 — contextWindow - buffer，窗口越大 buffer 越大
 - [ ] Step 3：Auto-Compact — LLM 压缩旧消息 → 摘要替换 → 递归锁防止自触
 - [ ] Step 4：Snip Compact + 熔断器 — 裁掉窗口外历史 + 连续 3 次失败后永久跳过
-- [ ] **Tutorial** → `docs/reflections/lesson-7-auto-compact.md`
+- [ ] **Tutorial** → `docs/reflections/lesson-8-auto-compact.md`
 
-#### 第 8 课 — Memory 系统（`memdir/` + `services/extractMemories/`）
+#### 第 9 课 — Memory 系统（`memdir/` + `services/extractMemories/`）
 
 - [ ] Step 1：Memory 目录 — `~/.mini-cc/memory/*.md` 纯文件存储
 - [ ] Step 2：提取记忆 — 每轮结束 spawn 受限 subagent 写入文件
 - [ ] Step 3：注入记忆 — 每次 query 开始时读所有 memory 文件注入 system prompt
 - [ ] Step 4：去重保护 — 主 Agent 自己写了 → extractMemories 跳过
-- [ ] **Tutorial** → `docs/reflections/lesson-8-memory-system.md`
+- [ ] **Tutorial** → `docs/reflections/lesson-9-memory-system.md`
 
-#### 第 9 课 — 会话持久化（`history.ts`）
+#### 第 10 课 — 会话持久化（`history.ts`）
 
 - [ ] Step 1：对话导出 — 当前消息列表序列化到文件
 - [ ] Step 2：Session 恢复 — 从文件重建 Agent 状态
 - [ ] Step 3：状态快照 — 定期保存 Agent 运行状态
-- [ ] **Tutorial** → `docs/reflections/lesson-9-session-persistence.md`
+- [ ] **Tutorial** → `docs/reflections/lesson-10-session-persistence.md`
 
 ### Phase 3：Harness 稳定
 
-#### 第 10 课 — 错误恢复与重试（`services/api/withRetry.ts` + `errors.ts`）
+#### 第 11 课 — 错误恢复与重试（`services/api/withRetry.ts` + `errors.ts`）
 
 - [ ] Step 1：重试决策树 — 429 退避 / 500 指数退避 / 401 刷新 / 413 压缩后重试
 - [ ] Step 2：熔断器 + 模型降级 — 连续失败 N 次后跳过 / 主模型超载切备用
 - [ ] Step 3：不可重试错误 + 后台不重试 — 400 直接抛 / extractMemories 失败直接放弃
-- [ ] **Tutorial** → `docs/reflections/lesson-10-error-recovery.md`
+- [ ] **Tutorial** → `docs/reflections/lesson-11-error-recovery.md`
 
-#### 第 11 课 — Permission 系统（`hooks/permissions/`）
+#### 第 12 课 — Permission / 集成（`hooks/permissions/` + 跨系统）
 
 - [ ] Step 1：三层决策 — allow（直接执行）/ deny（直接拒绝）/ ask（问用户）
 - [ ] Step 2：投机分类器 + Permission 模式 — 异步分类 500ms 窗口 + plan/default 等模式
 - [ ] Step 3：Auto-mode 断路器 — 超出信任边界 → 回退到 default 模式
-- [ ] **Tutorial** → `docs/reflections/lesson-11-permission-system.md`
-
-#### 第 12 课 — Harness 集成与打磨
-
-- [ ] Step 1：孤儿清理 — 子 Agent 退出后清理其 spawn 的进程
-- [ ] Step 2：MCP 重连 + 心跳 — 指数退避重连最多 5 次 + 长工具执行中保活
-- [ ] Step 3：超大结果处理 — tool_result 超过预算时截断/摘要
-- [ ] **Tutorial** → `docs/reflections/lesson-12-harness-integration.md`
+- [ ] Step 4：集成打磨 — 孤儿清理 / MCP 重连 / 超大 tool_result 截断
+- [ ] **Tutorial** → `docs/reflections/lesson-12-permission-integration.md`
 
 ## Design Log
 
@@ -115,3 +139,4 @@ Phase 3：Harness 稳定 ───────────── [  0%]  0 / 3 �
 | 003 | 2026-05-11 | SESSION.md 替代 HANDOFF.md + LESSON-PLAN.md | 合并手写交接与今日计划为单一活文档，消除信息散落 |
 | 004 | 2026-05-11 | STATUS.md 拆子步骤跟踪 + 每课强制 Tutorial | 一课多 Session 时可见进度；课后产出教程沉淀设计思考 |
 | 005 | 2026-05-11 | 编码规范：简洁 + 中文注释 + 贴合原版范式 | 第一次生成的代码太啰嗦、搬了太多定义；新规范要求一眼能看懂、不失去原理 |
+| 006 | 2026-05-16 | 路线改为迁移式：保留 Lesson 1-5，新增 Command / Context / Skill 迁移 | 对照 Claude Code 后发现 Command 是 Skill 和 Plugin 的关键中间层，Plugin 不是任意 Tool 的主入口 |
