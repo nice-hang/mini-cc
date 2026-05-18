@@ -9,6 +9,7 @@
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages'
 import type { Tool } from '../Tool.js'
 import type { StreamEvent } from '../types/stream.js'
+import type { Attachment } from '../attachments/types.js'
 import type { AgentDefinition } from './types.js'
 import { query } from '../query/query.js'
 
@@ -17,6 +18,7 @@ export type RunAgentOptions = {
   maxTokens?: number
   maxTurns?: number
   systemPrompt?: string
+  attachments?: Attachment[]
   onEvent?: (e: StreamEvent) => void
 }
 
@@ -49,6 +51,7 @@ export async function runAgent(
     maxTokens: options?.maxTokens,
     maxTurns: options?.maxTurns,
     systemPrompt,
+    attachments: options?.attachments,
   })
 
   return {

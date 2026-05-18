@@ -1,41 +1,21 @@
-// Skill Tool：模型通过此工具发现和加载 Skill
+// Skill Tool：模型通过此工具加载 Skill
 //
-// 本质：tool description 中列出所有可用 skill（name + description + whenToUse），
-// 模型匹配到场景后调用 Skill({skill: "name"}) 获取完整指令
-//
-// 不注入 system prompt，零固定 token 开销
+// 本质：Tool schema 保持稳定；可用 skill 列表由 discovery attachment 注入。
+// 模型匹配到场景后调用 Skill({skill: "name"}) 获取完整指令。
 //
 // 参考 claude-code：packages/builtin-tools/src/tools/SkillTool/
 
 import { buildTool } from '../../Tool.js'
 import type { CommandRegistry } from '../../commands/registry.js'
-import type { Command } from '../../commands/types.js'
-
-function getSkillCommands(commandRegistry: CommandRegistry): Command[] {
-  return commandRegistry.getAll().filter(command => command.kind === 'skill')
-}
-
-function buildSkillListing(skills: Command[]): string {
-  if (skills.length === 0) return ''
-
-  return skills.map(s => {
-    let line = `- /${s.name}: ${s.description}`
-    if (s.whenToUse) line += `（适用场景：${s.whenToUse}）`
-    if (s.allowedTools && s.allowedTools.length > 0) {
-      line += ` [工具限制：${s.allowedTools.join(', ')}]`
-    }
-    return line
-  }).join('\n')
-}
 
 export function createSkillTool(commandRegistry: CommandRegistry) {
-  const listing = buildSkillListing(getSkillCommands(commandRegistry))
-
   return buildTool({
     name: 'Skill',
-    description: listing
-      ? `按名加载并执行 Skill。可用 Skill：\n${listing}`
-      : '按名加载并执行 Skill。当前没有可用 Skill。',
+    description: [
+      '按名加载并执行 Skill。',
+      '可用 Skill 会在对话中的 <system-reminder> 里列出；当任务匹配某个 Skill 时，先调用此工具加载完整指令。',
+      '不要在未调用此工具的情况下声称已经使用了某个 Skill。',
+    ].join('\n'),
 
     input_schema: {
       type: 'object',

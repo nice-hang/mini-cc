@@ -13,7 +13,7 @@
 
 **当前阶段**：Phase 1.5 — 源码边界对齐
 
-**上节课完成**：第 6C 课 — Skill → Command 迁移（全部 5 个 Step + Tutorial 完成）
+**上节课完成**：第 6D 课 — Discovery Prompt / Listing 注入（全部 5 个 Step + Tutorial 完成）
 
 **本次路线复盘结论**：
 - 不回退 Lesson 1-5。已完成代码是 Happy Path 学习资产，后续在上面迁移和补强。
@@ -32,7 +32,7 @@
 - 已实现 `src/commands/`，并完成 Context / System Prompt 接入。
 - Skill loader 已直接返回 `Command[]`，不再保留独立 `Skill` 类型和 `skillToCommand()` 适配层。
 - SkillTool 已改为从 CommandRegistry 里筛选 skill command，而不是直接依赖独立 Skill 列表。
-- 下一步先补第 6D 课，再进入 Plugin。原因是 Plugin 会动态增加 skills / agents；如果 SkillTool / AgentTool 仍把完整列表塞进 description，插件刷新会扰动工具 schema，真实运行效果和 prompt cache 都会变差。
+- 下一步进入 Plugin。6D 已先把 skills / agents 的动态列表从 SkillTool / AgentTool description 中拆出，插件刷新不会再直接扰动工具 schema。
 
 **第 6A 课完成内容**：
 - 新增 `src/commands/`：PromptCommand 类型、CommandRegistry、内置命令、Markdown command loader、slash command 解析。
@@ -72,14 +72,23 @@
 
 **已更新文档**：
 - `ROADMAP.md` — 改为迁移式路线，新增 Phase 1.5
-- `STATUS.md` — Phase 1.5 调整为 3/5 完成，新增第 6D 课
-- `SESSION.md` — 当前手写交接和今日计划改为第 6D 课
+- `STATUS.md` — Phase 1.5 调整为 4/5 完成，第 6D 课完成
+- `SESSION.md` — 当前手写交接记录第 6D 课完成，今日计划切回 Plugin 系统
 
 **第 6D 课新增原因**：
-- 当前 `src/services/tools/skill.ts` 和 `src/services/tools/agent.ts` 都把可用列表直接拼进 tool description。
+- 6D 之前 `src/services/tools/skill.ts` 和 `src/services/tools/agent.ts` 都把可用列表直接拼进 tool description。
 - Claude Code 现在倾向让 tool prompt 保持稳定：SkillTool description 只随输入变化，prompt 只说明调用方式；skill 列表通过 `skill_listing` 注入，并按 1% context window 做预算。
 - AgentTool 也有 `agent_listing_delta` 机制，把动态 agent 列表移出 description；列表会按 MCP 可用性、permission deny、allowedAgentTypes 过滤后再注入。
-- mini-cc 先实现简化版 system-reminder 注入，不急着做完整 attachment/delta，但要把边界拆出来。
+- mini-cc 先实现 attachment mini 版：保留 `skill_listing` / `agent_listing_delta` 结构，发送 API 前渲染为 `<system-reminder>`。
+
+**第 6D 课完成内容**：
+- 新增 `src/attachments/`，定义 `skill_listing` / `agent_listing_delta` attachment，并统一渲染为 `<system-reminder>`。
+- 新增 `src/discovery/listings.ts`，统一构造 skill listing / agent listing attachment。
+- `Skill` tool description 改为稳定说明；skill 列表从 `CommandRegistry` 动态注入，并做 8000 chars 总预算 / 250 chars 单条截断。
+- `AgentTool` description 改为稳定说明；agent 列表从 `AgentRegistry` 动态注入为 `agent_listing_delta`，并展示 `filterToolsForAgent()` 后的有效工具。
+- `query()` 新增 `attachments` 入口，请求时临时渲染和前置，不写入长期消息历史。
+- 子 Agent 在 `AgentTool.call()` 内按过滤后的 `agentTools` 重新构造 attachment；没有 `AgentTool` 的子 Agent 不会看到 agent listing。
+- 教程已写入 `docs/reflections/lesson-6d-discovery-listing.md`。
 
 ---
 
@@ -87,24 +96,22 @@
 
 > 当前 Session 要完成的内容。每完成一步就勾选。
 
-**课程**：第 6D 课 — Discovery Prompt / Listing 注入（`SkillTool` + `AgentTool`）
+**课程**：第 7 课 — Plugin 系统（`services/plugins/`）
 
-- [ ] Step 1：源码对照 — 梳理 Claude Code 如何处理 skill listing / agent listing，明确 description 与动态列表的边界
-- [ ] Step 2：Skill listing — SkillTool description 稳定化，skill 列表改为 system-reminder 注入，并实现预算 / 单条截断
-- [ ] Step 3：Agent listing — AgentTool description 稳定化，agent 列表改为 system-reminder 注入，并展示有效工具范围
-- [ ] Step 4：子 Agent 继承 — 子 Agent 只接收自己可用的 skill / agent listing，避免暴露不可调用能力
-- [ ] Step 5：写教程 `docs/reflections/lesson-6d-discovery-listing.md`
+- [ ] Step 1：Plugin 发现 — 目录扫描 + manifest 解析
+- [ ] Step 2：组件注册 — commands / skills / agents / hooks / MCP
+- [ ] Step 3：Plugin 激活 + 隔离 — enabled/disabled + `pluginName:componentName` 命名空间
+- [ ] Step 4：Plugin refresh — 重新加载组件，不重启主 Agent
+- [ ] Step 5：写教程 `docs/reflections/lesson-7-plugin-system.md`
 
 **本课边界**：
-- 不实现完整 attachment 协议，先用 system-reminder 注入模拟官方 `skill_listing` / `agent_listing_delta`
-- 不做 skill search / remote skill discovery，只处理本地 command registry 中已加载的 skill
-- 不做 background / fork subagent，只保证现有 sync subagent 的 listing 与实际工具权限一致
-- 不做真实 prompt cache API，但代码结构要让 tool description 稳定，为后续 cache_control 留位置
+- Plugin 不是“直接注册任意 Tool”的主入口，先聚焦组件包
+- 先支持本地目录发现，不做 marketplace / remote install
+- hooks / MCP 先做 manifest 和注册边界，复杂权限和 stdio 生命周期留给后续课
+- 命名空间要避免用户 command / skill / agent 被 plugin 静默覆盖
 
 **参考源码**：
 - `../claude-code/src/commands.ts`
-- `../claude-code/packages/builtin-tools/src/tools/SkillTool/prompt.ts`
-- `../claude-code/packages/builtin-tools/src/tools/SkillTool/SkillTool.ts`
-- `../claude-code/packages/builtin-tools/src/tools/AgentTool/prompt.ts`
-- `../claude-code/src/utils/attachments.ts`
-- `../claude-code/packages/builtin-tools/src/tools/AgentTool/loadAgentsDir.ts`
+- `../claude-code/src/utils/plugins/loadPluginCommands.ts`
+- `../claude-code/src/utils/plugins/refresh.ts`
+- `../claude-code/src/utils/plugins/pluginManager.ts`

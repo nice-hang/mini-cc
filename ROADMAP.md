@@ -229,22 +229,22 @@ Claude Code 里 SkillTool 主要从 Command 列表中选择 prompt command。min
 - 列表变长后，description 会占用大量首轮上下文；真实实现会给 skill listing 做预算和截断。
 - Agent 列表还受 MCP 可用性、permission deny、allowedAgentTypes 影响，本质是每轮上下文状态，不是静态工具说明。
 
-**计划模块**：`src/query/` + `src/services/tools/skill.ts` + `src/services/tools/agent.ts` + `src/context.ts` 或 `src/attachments/`
+**计划模块**：`src/attachments/` + `src/discovery/` + `src/query/` + `src/services/tools/skill.ts` + `src/services/tools/agent.ts`
 
 **实现范围**：
 - SkillTool description 改成稳定说明：只讲“如何调用 skill”，不内嵌 skill 列表
 - 新增 skill listing 构造：从 `CommandRegistry` 取 `kind === 'skill'` / prompt command，输出 `- name: description - whenToUse`
 - 给 skill listing 加预算：默认 8000 chars 或 context window 1%，单条 description 最长 250 chars
-- 每次 query 开始把 skill listing 作为 system-reminder 注入；后续可升级为 delta attachment
+- 新增 `Attachment` 内部类型：`skill_listing` / `agent_listing_delta`
+- query 接收 attachment，由 renderer 临时渲染为 `<system-reminder>` message，不写入长期历史
 - AgentTool description 改成稳定说明：只讲“如何 spawn subagent”，不内嵌 agent 列表
-- 新增 agent listing 构造：从 `AgentRegistry` 取 active agents，输出 `- type: whenToUse (Tools: ...)`
+- 新增 `agent_listing_delta` 构造：从 `AgentRegistry` 取 active agents，输出 addedLines / removedTypes（当前先 initial 全量）
 - agent listing 与实际可用工具保持一致：展示 allowlist / denylist 后的有效工具，并过滤不可用 agent
 - 子 Agent 继承 listing 机制：只有拥有 SkillTool / AgentTool 的子 Agent 才看到对应列表
 - Tutorial 解释：列表发现、完整内容加载、prompt cache 三者之间的边界
 
 **暂不做**：
 - 真正的 Anthropic `cache_control`
-- 完整 attachment 类型系统
 - skill search / remote skill discovery
 - agent listing delta 的 transcript 重放和 compaction 后重宣告
 - background / fork subagent

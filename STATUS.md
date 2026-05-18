@@ -8,7 +8,7 @@
 
 ```
 Phase 1：能力骨架（MVP）──────────── [100%]  5 / 5 课
-Phase 1.5：源码边界对齐 ─────────── [ 60%]  3 / 5 课
+Phase 1.5：源码边界对齐 ─────────── [ 80%]  4 / 5 课
 Phase 2：上下文管理 ──────────────── [  0%]  0 / 3 课
 Phase 3：Harness 稳定 ───────────── [  0%]  0 / 2 课
 ```
@@ -83,12 +83,12 @@ Phase 3：Harness 稳定 ───────────── [  0%]  0 / 2 �
 
 #### 第 6D 课 — Discovery Prompt / Listing 注入（`SkillTool` + `AgentTool`）
 
-- [ ] Step 1：源码对照 — 梳理 Claude Code 如何处理 skill listing / agent listing，明确 description 与动态列表的边界
-- [ ] Step 2：Skill listing — SkillTool description 稳定化，skill 列表改为 system-reminder 注入，并实现预算 / 单条截断
-- [ ] Step 3：Agent listing — AgentTool description 稳定化，agent 列表改为 system-reminder 注入，并展示有效工具范围
-- [ ] Step 4：子 Agent 继承 — 子 Agent 只接收自己可用的 skill / agent listing，避免暴露不可调用能力
-- [ ] Step 5：对照修正 — 为 Plugin refresh 预留 delta attachment 边界
-- [ ] **Tutorial** → `docs/reflections/lesson-6d-discovery-listing.md`
+- [x] Step 1：源码对照 — 梳理 Claude Code 如何处理 skill listing / agent listing，明确 description 与动态列表的边界
+- [x] Step 2：Skill listing — SkillTool description 稳定化，skill 列表改为 `skill_listing` attachment，并实现预算 / 单条截断
+- [x] Step 3：Agent listing — AgentTool description 稳定化，agent 列表改为 `agent_listing_delta` attachment，并展示有效工具范围
+- [x] Step 4：子 Agent 继承 — 子 Agent 只接收自己可用的 skill / agent listing，避免暴露不可调用能力
+- [x] Step 5：对照修正 — 为 Plugin refresh 预留 delta attachment 边界
+- [x] **Tutorial** → `docs/reflections/lesson-6d-discovery-listing.md`
 
 #### 第 7 课 — Plugin 系统（`services/plugins/`）
 

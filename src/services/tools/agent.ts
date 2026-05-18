@@ -1,7 +1,7 @@
 // AgentTool：模型通过此工具发现和调用子 Agent
 //
-// 跟 Skill Tool 一样的模式：
-// - description 中动态列出所有可用 Agent
+// 跟 Skill Tool 一样，Tool schema 保持稳定：
+// - 动态 Agent 列表通过 discovery attachment 注入
 // - subagent_type 是自由字符串（非枚举），模型从描述中了解可用选项
 // - 调 AgentTool({ subagent_type: "explore", prompt: "..." }) 启动子 Agent
 //
@@ -12,9 +12,12 @@ import { runAgent } from '../../coordinator/runAgent.js'
 import { filterToolsForAgent } from '../../coordinator/toolFilter.js'
 import type { AgentRegistry } from '../../coordinator/agents.js'
 import type { Tool } from '../../Tool.js'
+import type { CommandRegistry } from '../../commands/registry.js'
+import { buildDiscoveryAttachments } from '../../discovery/listings.js'
 
 type AgentToolOptions = {
   parentSystemPrompt?: string
+  commandRegistry: CommandRegistry
 }
 
 // 运行时注入的"全部工具"引用，由 tools.ts 在注册完成后设置
@@ -25,36 +28,21 @@ export function updateAllTools(tools: Tool[]): void {
   _allTools = tools
 }
 
-// 生成 Agent 列表描述（跟 createSkillTool 的 buildSkillListing 一样模式）
-function buildAgentListing(registry: AgentRegistry): string {
-  const agents = registry.getAll()
-  if (agents.length === 0) return ''
-
-  return agents.map(a => {
-    let line = `- ${a.name}: ${a.description}`
-    if (a.whenToUse) line += `（适用场景：${a.whenToUse}）`
-    if (a.allowedToolNames.length > 0) {
-      line += ` [工具限制：${a.allowedToolNames.join(', ')}]`
-    }
-    return line
-  }).join('\n')
-}
-
-export function createAgentTool(registry: AgentRegistry, options: AgentToolOptions = {}): Tool {
-  const listing = buildAgentListing(registry)
-
+export function createAgentTool(registry: AgentRegistry, options: AgentToolOptions): Tool {
   return buildTool({
     name: 'AgentTool',
-    description: listing
-      ? `创建一个子 Agent 独立执行任务。可用 Agent 类型：\n${listing}`
-      : '创建一个子 Agent 独立执行任务。当前没有可用 Agent。',
+    description: [
+      '创建一个子 Agent 独立执行复杂任务。',
+      '可用 Agent 类型会在对话中的 <system-reminder> 里列出；使用 subagent_type 选择类型，省略时默认 general。',
+      '子 Agent 从独立对话开始，请在 prompt 中写清楚目标、背景、已知信息和期望输出。',
+    ].join('\n'),
 
     input_schema: {
       type: 'object',
       properties: {
         subagent_type: {
           type: 'string',
-          description: '子 Agent 类型，如 "general"、"explore"。可用类型见工具描述。',
+          description: '子 Agent 类型，如 "general"、"explore"。可用类型见 system-reminder。',
         },
         prompt: {
           type: 'string',
@@ -82,6 +70,11 @@ export function createAgentTool(registry: AgentRegistry, options: AgentToolOptio
 
       const { result, terminal } = await runAgent(prompt, agentDef, agentTools, {
         systemPrompt: buildSubagentSystemPrompt(agentDef.systemPrompt, options.parentSystemPrompt),
+        attachments: buildDiscoveryAttachments({
+          commandRegistry: options.commandRegistry,
+          agentRegistry: registry,
+          tools: agentTools,
+        }),
       })
 
       if (terminal.reason === 'error') {

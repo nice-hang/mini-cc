@@ -18,6 +18,7 @@ import { AgentRegistry, BUILT_IN_AGENTS } from '../coordinator/agents.js'
 import { loadAgentsFromDir } from '../coordinator/loader.js'
 import { McpClient } from '../services/mcp/index.js'
 import { loadSkillsFromDir } from '../skills/index.js'
+import { buildDiscoveryAttachments } from '../discovery/listings.js'
 import {
   BUILT_IN_COMMANDS,
   CommandRegistry,
@@ -37,6 +38,7 @@ export interface CliRuntime {
   maxTurns: number
   systemPrompt: string
   commandRegistry: CommandRegistry
+  agentRegistry: AgentRegistry
   tools: Tool[]
 }
 
@@ -53,7 +55,7 @@ export type RunOnceResult =
 export async function createRuntime(options: RuntimeOptions): Promise<CliRuntime> {
   const systemPrompt = await buildSystemPrompt()
   const commandRegistry = await createCommandRegistry()
-  const tools = await createToolset(systemPrompt, commandRegistry)
+  const { tools, agentRegistry } = await createToolset(systemPrompt, commandRegistry)
 
   console.error(pc.dim(`Model: ${options.model}  Tools: ${tools.length}`))
 
@@ -63,6 +65,7 @@ export async function createRuntime(options: RuntimeOptions): Promise<CliRuntime
     maxTurns: options.maxTurns,
     systemPrompt,
     commandRegistry,
+    agentRegistry,
     tools,
   }
 }
@@ -76,6 +79,12 @@ export async function runOnce(
   if (commandResult.type === 'unknown_command') return commandResult
 
   const messages: MessageParam[] = [{ role: 'user', content: commandResult.userContent }]
+  const attachments = buildDiscoveryAttachments({
+    commandRegistry: runtime.commandRegistry,
+    agentRegistry: runtime.agentRegistry,
+    tools: runtime.tools,
+  })
+
   const terminal = await query(messages, runtime.tools, (event) => {
     if (event.type === 'text_delta') onText(event.text)
   }, {
@@ -83,6 +92,7 @@ export async function runOnce(
     maxTokens: runtime.maxTokens,
     maxTurns: runtime.maxTurns,
     systemPrompt: runtime.systemPrompt,
+    attachments,
   })
 
   return { type: 'terminal', terminal }
@@ -112,7 +122,7 @@ async function createCommandRegistry(): Promise<CommandRegistry> {
 async function createToolset(
   systemPrompt: string,
   commandRegistry: CommandRegistry,
-): Promise<Tool[]> {
+): Promise<{ tools: Tool[]; agentRegistry: AgentRegistry }> {
   const toolRegistry = createDefaultTools()
 
   // Skill / Agent / MCP 都属于 runtime 能力，启动时装配一次，单次输入只负责消费。
@@ -122,7 +132,7 @@ async function createToolset(
   const agentRegistry = new AgentRegistry(BUILT_IN_AGENTS)
   const fileAgents = await loadAgentsFromDir(agentsDir)
   fileAgents.forEach(agent => agentRegistry.register(agent))
-  registerAgentTool(toolRegistry, agentRegistry, systemPrompt)
+  registerAgentTool(toolRegistry, agentRegistry, commandRegistry, systemPrompt)
   if (fileAgents.length > 0) {
     console.error(pc.dim(`Agents: ${fileAgents.map(a => a.name).join(', ')}`))
   }
@@ -130,7 +140,7 @@ async function createToolset(
   await registerConfiguredMcpTools(toolRegistry)
 
   finalizeTools(toolRegistry)
-  return toolRegistry.getAll()
+  return { tools: toolRegistry.getAll(), agentRegistry }
 }
 
 // 装配MCP

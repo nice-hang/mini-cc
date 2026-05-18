@@ -5,23 +5,31 @@
 // 2. 如果响应包含 tool_use → 按并发安全分组 → 执行工具 → 追加结果到消息历史 → 继续
 // 3. 如果响应不包含 tool_use → 结束
 //
-// Skill 限制：inline 模式下 skill 的 allowed-tools 是软约束——通过 tool description
-// 告知模型该 skill 建议使用哪些工具，实际不拦截工具调用。模型始终看到全部工具。
+// 动态 discovery 列表先保留为 attachment，再渲染成 message，避免塞进 Tool description。
 
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages'
 import type { Tool } from '../Tool.js'
 import type { StreamEvent } from '../types/stream.js'
+import type { Attachment } from '../attachments/types.js'
+import { renderAttachmentsAsMessages } from '../attachments/render.js'
 import { streamMessage } from '../services/api/claude.js'
-import { buildToolResultMessage } from '../utils/messages.js'
+import { buildToolResultMessage, normalizeMessages } from '../utils/messages.js'
 import { partitionToolCalls, executeToolGroups } from '../services/tools/partition.js'
 
 export type Terminal = { reason: 'done' | 'max_turns' | 'error'; error?: string }
+export type QueryOptions = {
+  model?: string
+  maxTokens?: number
+  maxTurns?: number
+  systemPrompt?: string
+  attachments?: Attachment[]
+}
 
 export async function query(
   messages: MessageParam[],
   tools: Tool[] | undefined,
   onEvent: (e: StreamEvent) => void,
-  options?: { model?: string; maxTokens?: number; maxTurns?: number; systemPrompt?: string },
+  options?: QueryOptions,
 ): Promise<Terminal> {
   const maxTurns = options?.maxTurns ?? 25
 
@@ -29,8 +37,10 @@ export async function query(
   const getTool = (name: string) => tools?.find(t => t.name === name)
 
   for (let turn = 1; turn <= maxTurns; turn++) {
+    const requestMessages = withAttachments(messages, options?.attachments)
+
     // 调用模型，通过 onEvent 实时转发流式事件
-    const assistantMsg = await streamMessage(messages, tools, onEvent, {
+    const assistantMsg = await streamMessage(requestMessages, tools, onEvent, {
       model: options?.model,
       maxTokens: options?.maxTokens,
       system: options?.systemPrompt,
@@ -54,4 +64,14 @@ export async function query(
   }
 
   return { reason: 'max_turns' }
+}
+
+function withAttachments(
+  messages: MessageParam[],
+  attachments: Attachment[] | undefined,
+): MessageParam[] {
+  if (!attachments || attachments.length === 0) return messages
+
+  // attachment 不写入长期历史；每次请求临时渲染，物理上由 user message 承载。
+  return normalizeMessages([...renderAttachmentsAsMessages(attachments), ...messages])
 }
