@@ -23,6 +23,7 @@
   Lesson 6A  Command 系统补课
   Lesson 6B  Context / System Prompt 补课
   Lesson 6C  Skill 迁移到 Command 模型
+  Lesson 6D  Discovery Prompt：Skill / Agent 列表注入
   Lesson 7   Plugin 系统：注册 commands / skills / agents / hooks / MCP
   Lesson 8+  Compact / Memory / History / Retry / Permission / Integration
 ```
@@ -216,6 +217,46 @@ Claude Code 里 SkillTool 主要从 Command 列表中选择 prompt command。min
 **不需要做的事**：
 - 不删除现有 Skill 文件
 - 不重写前 4 课教程，只追加“对照修正”说明
+
+---
+
+### 第 6D 课：Discovery Prompt / Listing 注入
+
+**本质**：Skill / Agent 的列表是动态发现结果，不应该长期塞在 Tool description 里。Tool description 应保持稳定，列表通过 system-reminder / attachment 注入 conversation，避免列表变化破坏工具 schema 的 prompt cache，也让后续 Plugin refresh 更自然。
+
+**为什么插在 Plugin 前**：
+- Plugin 会新增 commands / skills / agents，若列表仍写死在 SkillTool / AgentTool description，一刷新插件就会改变工具定义。
+- 列表变长后，description 会占用大量首轮上下文；真实实现会给 skill listing 做预算和截断。
+- Agent 列表还受 MCP 可用性、permission deny、allowedAgentTypes 影响，本质是每轮上下文状态，不是静态工具说明。
+
+**计划模块**：`src/query/` + `src/services/tools/skill.ts` + `src/services/tools/agent.ts` + `src/context.ts` 或 `src/attachments/`
+
+**实现范围**：
+- SkillTool description 改成稳定说明：只讲“如何调用 skill”，不内嵌 skill 列表
+- 新增 skill listing 构造：从 `CommandRegistry` 取 `kind === 'skill'` / prompt command，输出 `- name: description - whenToUse`
+- 给 skill listing 加预算：默认 8000 chars 或 context window 1%，单条 description 最长 250 chars
+- 每次 query 开始把 skill listing 作为 system-reminder 注入；后续可升级为 delta attachment
+- AgentTool description 改成稳定说明：只讲“如何 spawn subagent”，不内嵌 agent 列表
+- 新增 agent listing 构造：从 `AgentRegistry` 取 active agents，输出 `- type: whenToUse (Tools: ...)`
+- agent listing 与实际可用工具保持一致：展示 allowlist / denylist 后的有效工具，并过滤不可用 agent
+- 子 Agent 继承 listing 机制：只有拥有 SkillTool / AgentTool 的子 Agent 才看到对应列表
+- Tutorial 解释：列表发现、完整内容加载、prompt cache 三者之间的边界
+
+**暂不做**：
+- 真正的 Anthropic `cache_control`
+- 完整 attachment 类型系统
+- skill search / remote skill discovery
+- agent listing delta 的 transcript 重放和 compaction 后重宣告
+- background / fork subagent
+
+**Claude Code 参考**：
+- `../claude-code/packages/builtin-tools/src/tools/SkillTool/prompt.ts`
+- `../claude-code/packages/builtin-tools/src/tools/SkillTool/SkillTool.ts`
+- `../claude-code/src/commands.ts#getSkillToolCommands`
+- `../claude-code/packages/builtin-tools/src/tools/AgentTool/prompt.ts`
+- `../claude-code/src/utils/attachments.ts#getAgentListingDeltaAttachment`
+- `../claude-code/src/utils/attachments.ts#getSkillListingAttachments`
+- `../claude-code/packages/builtin-tools/src/tools/AgentTool/loadAgentsDir.ts`
 
 ---
 

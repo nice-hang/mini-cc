@@ -1,8 +1,8 @@
-# mini-cc — 从零实现 Codex
+# mini-cc — 从零实现 Claude Code
 
 ## 项目定位
 
-从 Codex 官方源码中提取核心设计模式，在 mini-cc 中渐进式实现每个机制。
+从 Claude Code 官方源码中提取核心设计模式，在 mini-cc 中渐进式实现每个机制。
 目标是理解 Agent 工程化的本质——从 Agent Loop 到 Plugin 生态，每节课实现一个独立模块。
 
 通过"先理解设计意图 → 亲手实现 → 对照官方源码修正"的方式学习。
@@ -30,7 +30,7 @@ mini-cc/
 ├── ROADMAP.md                      ★ 参考：12 课课程总纲（每课读一次）
 ├── HANDOFFS/                       ★ 归档：历史 Session 手写记录
 │
-├── src/                            实现代码（镜像 Codex 架构）
+├── src/                            实现代码（镜像 claude-code 架构）
 │   ├── index.ts                    入口
 │   ├── config.ts                   配置
 │   │
@@ -44,7 +44,7 @@ mini-cc/
 │   │
 │   ├── services/
 │   │   ├── api/                    LLM API 层
-│   │   │   ├── Codex.ts           流式调用
+│   │   │   ├── claude.ts           流式调用
 │   │   │   ├── withRetry.ts        重试
 │   │   │   └── errors.ts           错误类型
 │   │   │
@@ -64,7 +64,7 @@ mini-cc/
 │   ├── utils/                      工具函数
 │   └── constants/                  常量
 │
-├── deps/Codex → ../../Codex/   ◀ symlink
+├── deps/claude-code → ../../claude-code/   ◀ symlink
 │
 ├── docs/
 │   ├── architecture.md             架构总览
@@ -77,25 +77,25 @@ mini-cc/
 
 ## 源码对照表
 
-Codex 官方源码位于同级 `../Codex/`，通过 `deps/` symlink 访问。
+claude-code 官方源码位于同级 `../claude-code/`，通过 `deps/` symlink 访问。
 
 
-| mini-cc 模块                              | Codex 参考                                               |
+| mini-cc 模块                              | claude-code 参考                                               |
 | --------------------------------------- | ------------------------------------------------------------ |
-| `query/query.ts`                        | `deps/Codex/src/query.ts`                              |
-| `services/api/Codex.ts`                | `deps/Codex/src/services/api/Codex.ts`                |
-| `Tool.ts`                               | `deps/Codex/src/Tool.ts`                               |
-| `tools.ts` + `services/tools/`          | `deps/Codex/src/tools.ts` + `services/tools/`          |
-| `services/mcp/`                         | `deps/Codex/packages/mcp-client/src/`                  |
-| `skills/`                               | `deps/Codex/src/skills/`                               |
-| `coordinator/`                          | `deps/Codex/src/coordinator/`                          |
-| `services/compact/`                     | `deps/Codex/src/services/compact/`                     |
-| `memdir/` + `services/extractMemories/` | `deps/Codex/src/memdir/` + `services/extractMemories/` |
-| `services/plugins/`                     | `deps/Codex/src/services/plugins/`                     |
-| `services/api/withRetry.ts`             | `deps/Codex/src/services/api/withRetry.ts`             |
-| `hooks/permissions/`                    | `deps/Codex/src/hooks/toolPermission/`                 |
-| `utils/messages.ts`                     | `deps/Codex/src/utils/messages.ts`                     |
-| `history.ts`                            | `deps/Codex/src/history.ts`                            |
+| `query/query.ts`                        | `deps/claude-code/src/query.ts`                              |
+| `services/api/claude.ts`                | `deps/claude-code/src/services/api/claude.ts`                |
+| `Tool.ts`                               | `deps/claude-code/src/Tool.ts`                               |
+| `tools.ts` + `services/tools/`          | `deps/claude-code/src/tools.ts` + `services/tools/`          |
+| `services/mcp/`                         | `deps/claude-code/packages/mcp-client/src/`                  |
+| `skills/`                               | `deps/claude-code/src/skills/`                               |
+| `coordinator/`                          | `deps/claude-code/src/coordinator/`                          |
+| `services/compact/`                     | `deps/claude-code/src/services/compact/`                     |
+| `memdir/` + `services/extractMemories/` | `deps/claude-code/src/memdir/` + `services/extractMemories/` |
+| `services/plugins/`                     | `deps/claude-code/src/services/plugins/`                     |
+| `services/api/withRetry.ts`             | `deps/claude-code/src/services/api/withRetry.ts`             |
+| `hooks/permissions/`                    | `deps/claude-code/src/hooks/toolPermission/`                 |
+| `utils/messages.ts`                     | `deps/claude-code/src/utils/messages.ts`                     |
+| `history.ts`                            | `deps/claude-code/src/history.ts`                            |
 
 
 ## 课程 → 模块映射
@@ -105,7 +105,7 @@ Codex 官方源码位于同级 `../Codex/`，通过 `deps/` symlink 访问。
 ```
 课时   模块                                 本质                                   教程
 ───   ──────────────────────────────────   ──────────────────────────            ─────────────────────────
- 1    query/ + services/api/Codex.ts      Agent while(true) 循环 + 流式 API    lesson-1-agent-harness.md
+ 1    query/ + services/api/claude.ts      Agent while(true) 循环 + 流式 API    lesson-1-agent-harness.md
  2    Tool.ts + tools.ts + services/tools/  Tool 系统：定义 → 注册 → 执行       lesson-2-tool-system.md
  3    services/mcp/                         MCP 协议：外部工具发现与调用           lesson-3-mcp-protocol.md
  4    skills/                               Skill 系统：按需加载专家指令          lesson-4-skill-system.md
@@ -124,27 +124,33 @@ Codex 官方源码位于同级 `../Codex/`，通过 `deps/` symlink 访问。
 > **简洁、易懂、不失原理、贴合原版范式**
 
 ### 简洁
-- 不搬 Codex 的完整定义，只 import 需要的类型
+
+- 不搬 claude-code 的完整定义，只 import 需要的类型
 - 控制流直白，一个函数只做一件事
 - 不搞抽象层、不提前封装工具函数
 
 ### 中文注释
+
 所有注释用中文写，解释"为什么这样设计"，不解释"代码在做什么"：
+
 - 模块顶部：一句话说明本质
 - 关键分支：说明为什么选这个路径
 - 不写废话：`// 遍历数组` 这种不如不写
 
 ### 一眼能看懂
+
 - 变量名用完整英文词（`toolUseBlocks` 不缩写）
 - 函数签名说清楚输入输出
 - 不需要跳 3 个文件才能理解一段逻辑
 
 ### 不失原理
-- 保留 Codex 的核心设计模式：AsyncGenerator 事件流、while(true) 循环、工具执行编排
+
+- 保留 claude-code 的核心设计模式：AsyncGenerator 事件流、while(true) 循环、工具执行编排
 - 不因追求简洁而牺牲架构的完整性
 
 ### 贴合原版范式
-- 文件命名、模块划分、类型命名跟 Codex 保持一致
+
+- 文件命名、模块划分、类型命名跟 claude-code 保持一致
 - 参考源码时只取核心骨架，不照搬常量表和配置项
 
 ```typescript
@@ -170,8 +176,8 @@ export async function* query(
 
 1. **从本质出发** — 先理解这个模块解决什么根本问题，再动手
 2. **Happy Path First** — 先跑通核心流程，再加边界处理（本质 5min → Happy Path 30min → 边界 30min）
-3. **以 Codex 源码为准** — 设计原理必须对照 `deps/Codex/` 中的实际实现做决策。不允许凭推测或"我觉得它应该这样"来设计。有疑问时，先读源码，再下结论
-4. **对照修正** — 实现后对比 Codex 源码，看差异在哪，及时纠正偏差
+3. **以 claude-code 源码为准** — 设计原理必须对照 `deps/claude-code/` 中的实际实现做决策。不允许凭推测或"我觉得它应该这样"来设计。有疑问时，先读源码，再下结论
+4. **对照修正** — 实现后对比 claude-code 源码，看差异在哪，及时纠正偏差
 5. **每节课一个独立提交** — git commit 按课分割，方便回溯
 
 ## 跨 Session 工作流（渐进式披露）
@@ -203,17 +209,17 @@ export async function* query(
 
 - 目标读者：想理解 Agent 工程化本质的开发者
 - 重点：实现原理（怎么做的） + 设计意图（为什么这么做）
-- 附带与 Codex 源码的对照分析
+- 附带与 claude-code 源码的对照分析
 - 放在 `docs/reflections/lesson-N-name.md`，模板见 `docs/reflections/TUTORIAL-TEMPLATE.md`
 
 ## 设计来源
 
 mini-cc 的架构设计和实现顺序参考了以下文章：
 
-- **[Seeing Like an Agent](https://Codex.com/blog/seeing-like-an-agent)** — 渐进式披露、工具设计哲学、模型视角
-- **[Prompt Caching is Everything](https://Codex.com/blog/lessons-from-building-Codex-prompt-caching-is-everything)** — 消除冗余、高效上下文管理
-- **[Codex Managed Agents](https://Codex.com/blog/Codex-managed-agents)** — Harness 作为基础设施层
-- **[Dive into Codex](https://github.com/VILA-Lab/Dive-into-Codex)** — 架构逐层拆解
+- **[Seeing Like an Agent](https://claude.com/blog/seeing-like-an-agent)** — 渐进式披露、工具设计哲学、模型视角
+- **[Prompt Caching is Everything](https://claude.com/blog/lessons-from-building-claude-code-prompt-caching-is-everything)** — 消除冗余、高效上下文管理
+- **[Claude Managed Agents](https://claude.com/blog/claude-managed-agents)** — Harness 作为基础设施层
+- **[Dive into Claude Code](https://github.com/VILA-Lab/Dive-into-Claude-Code)** — 架构逐层拆解
 
 ## Git 约定
 
@@ -229,4 +235,3 @@ npm run dev    # 开发模式
 npm start      # 同上
 npm run build  # 编译
 ```
-

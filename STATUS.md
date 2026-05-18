@@ -1,6 +1,6 @@
 # mini-cc 实现状态
 
-> 最后更新：2026-05-16
+> 最后更新：2026-05-18
 > 规划详见 ROADMAP.md，当前课程计划详见 SESSION.md
 > 每课拆分子步骤跟踪，支持跨 Session 渐进；**每课最后一步是写教程**。
 
@@ -8,7 +8,7 @@
 
 ```
 Phase 1：能力骨架（MVP）──────────── [100%]  5 / 5 课
-Phase 1.5：源码边界对齐 ─────────── [ 75%]  3 / 4 课
+Phase 1.5：源码边界对齐 ─────────── [ 60%]  3 / 5 课
 Phase 2：上下文管理 ──────────────── [  0%]  0 / 3 课
 Phase 3：Harness 稳定 ───────────── [  0%]  0 / 2 课
 ```
@@ -80,6 +80,15 @@ Phase 3：Harness 稳定 ───────────── [  0%]  0 / 2 �
 - [x] Step 3：兼容现有目录 — `~/.mini-cc/skills/*/SKILL.md` 不破坏
 - [x] Step 4：对照修正 — 教程补充 Claude Code 中 Skill 与 Command 的关系
 - [x] **Tutorial** → `docs/reflections/lesson-6c-skill-command-migration.md`
+
+#### 第 6D 课 — Discovery Prompt / Listing 注入（`SkillTool` + `AgentTool`）
+
+- [ ] Step 1：源码对照 — 梳理 Claude Code 如何处理 skill listing / agent listing，明确 description 与动态列表的边界
+- [ ] Step 2：Skill listing — SkillTool description 稳定化，skill 列表改为 system-reminder 注入，并实现预算 / 单条截断
+- [ ] Step 3：Agent listing — AgentTool description 稳定化，agent 列表改为 system-reminder 注入，并展示有效工具范围
+- [ ] Step 4：子 Agent 继承 — 子 Agent 只接收自己可用的 skill / agent listing，避免暴露不可调用能力
+- [ ] Step 5：对照修正 — 为 Plugin refresh 预留 delta attachment 边界
+- [ ] **Tutorial** → `docs/reflections/lesson-6d-discovery-listing.md`
 
 #### 第 7 课 — Plugin 系统（`services/plugins/`）
 
