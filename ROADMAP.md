@@ -24,6 +24,7 @@
   Lesson 6B  Context / System Prompt 补课
   Lesson 6C  Skill 迁移到 Command 模型
   Lesson 6D  Discovery Prompt：Skill / Agent 列表注入
+  Lesson 6E  ToolSearch：MCP tool schema 延迟加载
   Lesson 7   Plugin 系统：注册 commands / skills / agents / hooks / MCP
   Lesson 8+  Compact / Memory / History / Retry / Permission / Integration
 ```
@@ -257,6 +258,35 @@ Claude Code 里 SkillTool 主要从 Command 列表中选择 prompt command。min
 - `../claude-code/src/utils/attachments.ts#getAgentListingDeltaAttachment`
 - `../claude-code/src/utils/attachments.ts#getSkillListingAttachments`
 - `../claude-code/packages/builtin-tools/src/tools/AgentTool/loadAgentsDir.ts`
+
+---
+
+### 第 6E 课：ToolSearch / Deferred MCP Tools
+
+**本质**：MCP tools 都注册在 runtime，但不把所有 MCP tool 的完整 schema 一次性发给模型。模型先看到 deferred tool 名字，需要时用 ToolSearch 加载具体 schema。
+
+**为什么插在 Plugin 前**：
+- Plugin / MCP 会让工具池动态变大，MCP tool schema 全量发送会迅速污染上下文。
+- Claude Code 对 MCP tools 默认 deferred，除非 MCP tool 显式声明 `alwaysLoad`。
+- ToolSearch 和 6D 的 attachment/delta 是同一类边界：动态能力列表不属于稳定 system prompt，也不应该全部进入首轮 tool schema。
+
+**计划模块**：`src/services/tools/tool_search.ts` + `src/services/api/claude.ts` + `src/discovery/listings.ts`
+
+**实现范围**：
+- MCP tool 标记 `isMcp` / `alwaysLoad` / `searchHint`
+- API 请求只发送非 deferred 工具、ToolSearch、以及已被 ToolSearch 选中的 MCP 工具
+- deferred tool 名字通过 `deferred_tools_delta` attachment 暴露给模型
+- ToolSearch 支持关键词搜索和 `select:<tool_name>` 精确加载
+
+**暂不做**：
+- Anthropic `tool_reference` beta
+- 自动阈值判断
+- 跨 session 的 deferred delta 去重
+
+**Claude Code 参考**：
+- `../claude-code/packages/builtin-tools/src/tools/ToolSearchTool/`
+- `../claude-code/src/utils/toolSearch.ts`
+- `../claude-code/src/services/api/claude.ts`
 
 ---
 

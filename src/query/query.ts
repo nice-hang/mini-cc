@@ -15,6 +15,7 @@ import { renderAttachmentsAsMessages } from '../attachments/render.js'
 import { streamMessage } from '../services/api/claude.js'
 import { buildToolResultMessage, normalizeMessages } from '../utils/messages.js'
 import { partitionToolCalls, executeToolGroups } from '../services/tools/partition.js'
+import { consumeDeferredToolSchemaDelta } from '../services/tools/tool_search.js'
 
 export type Terminal = { reason: 'done' | 'max_turns' | 'error'; error?: string }
 export type QueryOptions = {
@@ -61,6 +62,13 @@ export async function query(
 
     messages.push(assistantMsg)
     messages.push(buildToolResultMessage(results))
+
+    // 教学版没有 Anthropic tool_reference，因此把 ToolSearch 命中的 schema
+    // 作为 message delta 追加到历史里，而不是改下一轮请求头部的 tools[]。
+    const loadedToolSchemaDelta = consumeDeferredToolSchemaDelta()
+    if (loadedToolSchemaDelta) {
+      messages.push(...renderAttachmentsAsMessages([loadedToolSchemaDelta]))
+    }
   }
 
   return { reason: 'max_turns' }

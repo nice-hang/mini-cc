@@ -8,7 +8,7 @@
 
 ```
 Phase 1：能力骨架（MVP）──────────── [100%]  5 / 5 课
-Phase 1.5：源码边界对齐 ─────────── [ 80%]  4 / 5 课
+Phase 1.5：源码边界对齐 ─────────── [ 83%]  5 / 6 课
 Phase 2：上下文管理 ──────────────── [  0%]  0 / 3 课
 Phase 3：Harness 稳定 ───────────── [  0%]  0 / 2 课
 ```
@@ -89,6 +89,15 @@ Phase 3：Harness 稳定 ───────────── [  0%]  0 / 2 �
 - [x] Step 4：子 Agent 继承 — 子 Agent 只接收自己可用的 skill / agent listing，避免暴露不可调用能力
 - [x] Step 5：对照修正 — 为 Plugin refresh 预留 delta attachment 边界
 - [x] **Tutorial** → `docs/reflections/lesson-6d-discovery-listing.md`
+
+#### 第 6E 课 — ToolSearch / Deferred MCP Tools（`services/tools/tool_search.ts`）
+
+- [x] Step 1：源码对照 — 确认 Claude Code 中 MCP tools 默认 deferred，完整 schema 由 ToolSearch 按需加载
+- [x] Step 2：MCP tool metadata — 标记 `isMcp` / `alwaysLoad` / `searchHint`
+- [x] Step 3：ToolSearch tool — 支持关键词搜索和 `select:<tool_name>` 精确加载 deferred tool
+- [x] Step 4：API schema 过滤 — 请求只发送非 deferred 工具、ToolSearch、以及已加载的 MCP 工具
+- [x] Step 5：deferred listing — 用 `deferred_tools_delta` attachment 暴露可搜索工具名
+- [x] **Tutorial** → `docs/reflections/lesson-6e-tool-search-deferred-mcp.md`
 
 #### 第 7 课 — Plugin 系统（`services/plugins/`）
 

@@ -22,6 +22,12 @@ function renderAttachment(attachment: Attachment): string {
 
     case 'agent_listing_delta':
       return renderAgentListingDelta(attachment)
+
+    case 'deferred_tools_delta':
+      return renderDeferredToolsDelta(attachment)
+
+    case 'deferred_tool_schema_delta':
+      return renderDeferredToolSchemaDelta(attachment)
   }
 }
 
@@ -43,6 +49,36 @@ function renderAgentListingDelta(attachment: Extract<Attachment, { type: 'agent_
   }
 
   return sections.join('\n\n')
+}
+
+function renderDeferredToolsDelta(attachment: Extract<Attachment, { type: 'deferred_tools_delta' }>): string {
+  const sections: string[] = []
+
+  if (attachment.addedLines.length > 0) {
+    sections.push([
+      'The following deferred tools are available via ToolSearch. Use ToolSearch before calling one of them:',
+      ...attachment.addedLines,
+    ].join('\n'))
+  }
+
+  if (attachment.removedNames.length > 0) {
+    sections.push([
+      'The following deferred tools are no longer available:',
+      ...attachment.removedNames.map(name => `- ${name}`),
+    ].join('\n'))
+  }
+
+  return sections.join('\n\n')
+}
+
+function renderDeferredToolSchemaDelta(attachment: Extract<Attachment, { type: 'deferred_tool_schema_delta' }>): string {
+  return [
+    'ToolSearch loaded complete schemas for these deferred tools. Treat the following <functions> block as message-local tool definitions:',
+    attachment.addedNames.map(name => `- ${name}`).join('\n'),
+    '<functions>',
+    ...attachment.schemaLines,
+    '</functions>',
+  ].join('\n')
 }
 
 function renderSystemReminder(content: string): string {

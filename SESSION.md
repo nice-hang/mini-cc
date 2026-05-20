@@ -13,7 +13,7 @@
 
 **当前阶段**：Phase 1.5 — 源码边界对齐
 
-**上节课完成**：第 6D 课 — Discovery Prompt / Listing 注入（全部 5 个 Step + Tutorial 完成）
+**上节课完成**：第 6E 课 — ToolSearch / Deferred MCP Tools（全部 5 个 Step + Tutorial 完成）
 
 **本次路线复盘结论**：
 - 不回退 Lesson 1-5。已完成代码是 Happy Path 学习资产，后续在上面迁移和补强。
@@ -33,6 +33,7 @@
 - Skill loader 已直接返回 `Command[]`，不再保留独立 `Skill` 类型和 `skillToCommand()` 适配层。
 - SkillTool 已改为从 CommandRegistry 里筛选 skill command，而不是直接依赖独立 Skill 列表。
 - 下一步进入 Plugin。6D 已先把 skills / agents 的动态列表从 SkillTool / AgentTool description 中拆出，插件刷新不会再直接扰动工具 schema。
+- 6E 已补齐 MCP tools 的 deferred schema 边界：MCP tools 仍在 runtime 注册，但首轮不再把所有 MCP schema 发给模型；模型通过 ToolSearch 按需加载。
 
 **第 6A 课完成内容**：
 - 新增 `src/commands/`：PromptCommand 类型、CommandRegistry、内置命令、Markdown command loader、slash command 解析。
@@ -89,6 +90,13 @@
 - `query()` 新增 `attachments` 入口，请求时临时渲染和前置，不写入长期消息历史。
 - 子 Agent 在 `AgentTool.call()` 内按过滤后的 `agentTools` 重新构造 attachment；没有 `AgentTool` 的子 Agent 不会看到 agent listing。
 - 教程已写入 `docs/reflections/lesson-6d-discovery-listing.md`。
+
+**第 6E 课完成内容**：
+- 新增 `src/services/tools/tool_search.ts`，实现 mini 版 ToolSearch / deferred MCP tools。
+- MCP tool 适配器标记 `isMcp`，支持 `_meta["anthropic/alwaysLoad"]` 和 `_meta["anthropic/searchHint"]`。
+- API 请求前调用 `getVisibleToolsForRequest()`：只发送非 deferred 工具、ToolSearch、以及已被 ToolSearch 选中的 MCP 工具。
+- 新增 `deferred_tools_delta` attachment，向模型公告可通过 ToolSearch 发现的 MCP tool 名字。
+- 教程已写入 `docs/reflections/lesson-6e-tool-search-deferred-mcp.md`。
 
 ---
 

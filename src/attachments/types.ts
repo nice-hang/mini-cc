@@ -3,6 +3,8 @@
 export type Attachment =
   | SkillListingAttachment
   | AgentListingDeltaAttachment
+  | DeferredToolsDeltaAttachment
+  | DeferredToolSchemaDeltaAttachment
 
 export type SkillListingAttachment = {
   type: 'skill_listing'
@@ -17,4 +19,18 @@ export type AgentListingDeltaAttachment = {
   addedLines: string[]
   removedTypes: string[]
   isInitial: boolean
+}
+
+export type DeferredToolsDeltaAttachment = {
+  type: 'deferred_tools_delta'
+  addedNames: string[]
+  addedLines: string[]
+  removedNames: string[]
+  isInitial: boolean
+}
+
+export type DeferredToolSchemaDeltaAttachment = {
+  type: 'deferred_tool_schema_delta'
+  addedNames: string[]
+  schemaLines: string[]
 }

@@ -13,6 +13,7 @@ import { webFetchTool } from './services/tools/web_fetch.js'
 import type { McpClient } from './services/mcp/client.js'
 import { createSkillTool } from './services/tools/skill.js'
 import { createAgentTool, updateAllTools } from './services/tools/agent.js'
+import { createToolSearchTool, isDeferredTool } from './services/tools/tool_search.js'
 import type { AgentRegistry } from './coordinator/agents.js'
 import type { CommandRegistry } from './commands/registry.js'
 
@@ -39,6 +40,12 @@ export async function registerMcpTools(
     registry.register(client.toMiniCCTool(tool, serverName))
   }
   return tools.length
+}
+
+// 注册 ToolSearch：MCP tool 保留在 registry，schema 通过搜索后再暴露给模型。
+export function registerToolSearchTool(registry: ToolRegistry): void {
+  if (!registry.getAll().some(isDeferredTool)) return
+  registry.register(createToolSearchTool(() => registry.getAll()))
 }
 
 // 注册 Skill Tool：把已加载的 skill 列表包装成一个工具暴露给模型

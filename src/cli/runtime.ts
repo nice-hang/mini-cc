@@ -10,6 +10,7 @@ import { query, type Terminal } from '../query/query.js'
 import {
   createDefaultTools,
   registerMcpTools,
+  registerToolSearchTool,
   registerSkillTool,
   registerAgentTool,
   finalizeTools,
@@ -138,6 +139,7 @@ async function createToolset(
   }
 
   await registerConfiguredMcpTools(toolRegistry)
+  registerToolSearchTool(toolRegistry)
 
   finalizeTools(toolRegistry)
   return { tools: toolRegistry.getAll(), agentRegistry }

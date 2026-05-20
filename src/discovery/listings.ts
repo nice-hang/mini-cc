@@ -6,6 +6,7 @@ import type { CommandRegistry } from '../commands/registry.js'
 import type { AgentRegistry } from '../coordinator/agents.js'
 import type { AgentDefinition } from '../coordinator/types.js'
 import { filterToolsForAgent } from '../coordinator/toolFilter.js'
+import { TOOL_SEARCH_TOOL_NAME, formatDeferredToolLine, isDeferredTool } from '../services/tools/tool_search.js'
 
 const SKILL_CHAR_BUDGET = 8_000
 const MAX_LISTING_DESC_CHARS = 250
@@ -30,6 +31,19 @@ export function buildDiscoveryAttachments(options: DiscoveryListingOptions): Att
     const agentListing = buildAgentListingDelta(options.agentRegistry, options.tools)
     if (agentListing.addedLines.length > 0 || agentListing.removedTypes.length > 0) {
       attachments.push(agentListing)
+    }
+  }
+
+  if (hasTool(options.tools, TOOL_SEARCH_TOOL_NAME)) {
+    const deferredTools = options.tools.filter(isDeferredTool)
+    if (deferredTools.length > 0) {
+      attachments.push({
+        type: 'deferred_tools_delta',
+        addedNames: deferredTools.map(tool => tool.name).sort(),
+        addedLines: deferredTools.map(formatDeferredToolLine).sort(),
+        removedNames: [],
+        isInitial: true,
+      })
     }
   }
 

@@ -24,6 +24,7 @@ export interface McpToolDefinition {
   name: string
   description?: string
   inputSchema?: Record<string, unknown>
+  _meta?: Record<string, unknown>
 }
 
 export interface McpToolResult {
@@ -110,6 +111,11 @@ export class McpClient {
         type: 'object' as const,
         ...(mcpTool.inputSchema as Record<string, unknown> | undefined),
       },
+      isMcp: true,
+      alwaysLoad: mcpTool._meta?.['anthropic/alwaysLoad'] === true,
+      searchHint: typeof mcpTool._meta?.['anthropic/searchHint'] === 'string'
+        ? mcpTool._meta['anthropic/searchHint'].replace(/\s+/g, ' ').trim()
+        : undefined,
       isConcurrencySafe: () => false,
       interruptBehavior: () => 'block' as const,
       call: async (input: Record<string, unknown>) => {

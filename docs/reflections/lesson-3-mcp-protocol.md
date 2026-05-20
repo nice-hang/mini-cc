@@ -9,7 +9,7 @@
 
 > MCP（Model Context Protocol）是一种让 Agent 通过 JSON-RPC 2.0 协议发现和调用外部工具的标准。它解决了"Agent 的工具集怎么扩展"的问题——不修改 Agent 代码，就能接入任何实现了 MCP 协议的服务。
 
-mini-cc 采用 **HTTP transport**，每个 JSON-RPC 请求是一次独立的 HTTP POST：
+mini-cc 采用 **HTTP transport**，每个 JSON-RPC 请求是一次独立的 HTTP POST。为了先看清 MCP 的最小闭环，第 3 课只实现了 `tools/list` 和 `tools/call`：
 
 ```
 Agent Loop ──→ ToolRegistry ──→ McpClient ──→ HTTP POST ──→ MCP Server
@@ -17,6 +17,41 @@ Agent Loop ──→ ToolRegistry ──→ McpClient ──→ HTTP POST ──
                                   tools/list → 发现工具
                                   tools/call → 执行工具
 ```
+
+但 Claude Code 的真实流程不是这条直线。更准确地说，MCP server 先进入“连接与能力发现层”，然后按能力类型分流到不同系统：
+
+```
+MCP config
+  │
+  ▼
+connectToServer()
+  │   建立 stdio / HTTP / SSE / SDK 连接，得到 server capabilities
+  │
+  ▼
+getMcpToolsCommandsAndResources()
+  │
+  ├─ tools/list
+  │    └─ fetchToolsForClient()
+  │        └─ 转成 Tool：name = mcp__server__tool，保留 mcpInfo / inputSchema / permission / timeout
+  │
+  ├─ prompts/list
+  │    └─ fetchCommandsForClient()
+  │        └─ 转成 Command：进入 slash command / prompt command 系统
+  │
+  ├─ resources/list
+  │    └─ fetchResourcesForClient()
+  │        └─ 进入资源索引；需要时通过 ReadMcpResourceTool 或 @mention 读成 attachment
+  │
+  ├─ skill:// resources
+  │    └─ fetchMcpSkillsForClient()
+  │        └─ 转成 loadedFrom = "mcp" 的 skill command，进入 SkillTool discovery
+  │
+  └─ server instructions
+       └─ mcp_instructions_delta attachment
+           └─ 作为运行时上下文增量注入，而不是塞进 Tool description
+```
+
+所以 MCP 在 Claude Code 里不是“远程 Tool 的别名”，而是一个远程能力源。**只有 MCP tools 会被包装成 Tool；MCP prompts 进入 Command；MCP resources 进入 Attachment；MCP instructions 进入 delta 上下文。**
 
 ## 为什么需要它
 
@@ -101,7 +136,7 @@ toMiniCCTool(mcpTool: McpToolDefinition, serverName: string) {
 
 ### Happy Path
 
-MCP over HTTP 的完整流程：
+mini-cc 的 Happy Path 只覆盖 MCP tools。它的价值是把“远程发现 → 本地注册 → 调用转发”这个骨架跑通：
 
 ```
 Agent Loop                  McpClient                         MCP Server
@@ -128,7 +163,37 @@ Agent Loop                  McpClient                         MCP Server
 2. **listTools()** — POST `tools/list` 请求，发现服务器提供的工具
 3. **callTool(name, args)** — POST `tools/call` 请求，执行具体工具
 
-无需子进程管理，无需行缓冲区，无需 pending Map，无需断开清理。
+对照 Claude Code 时，要把这个图再展开一层：
+
+```
+启动 / refresh
+  │
+  ├─ 读取 MCP 配置：user / project / plugin / dynamic
+  │
+  ├─ 连接 server：connected / failed / disabled / needs-auth
+  │
+  ├─ 按 capability 拉取远程能力
+  │    ├─ tools        → Tool[]
+  │    ├─ prompts      → Command[]
+  │    ├─ resources    → ServerResource[]
+  │    └─ instructions → mcp_instructions_delta
+  │
+  ├─ 写入 AppState.mcp
+  │    ├─ clients
+  │    ├─ tools
+  │    ├─ commands
+  │    └─ resources
+  │
+  └─ 每轮 query 构造上下文
+       ├─ tools = builtInTools + allowed MCP tools
+       ├─ commands = local commands + MCP commands
+       ├─ attachments = MCP resources / MCP instructions delta
+       └─ Agent Loop 只看到统一后的 Tool / Command / Attachment
+```
+
+这也是 Claude Code 的一个重要设计：Agent Loop 不需要知道工具来自 MCP，但 runtime 必须知道来源。因为权限、展示、缓存、资源读取、OAuth、server refresh 都依赖 `mcpInfo` 和 `AppState.mcp`。
+
+在 mini-cc 的 HTTP happy path 里，无需子进程管理、行缓冲区、pending Map 和断开清理；Claude Code 需要同时支持 stdio / HTTP / SSE / SDK，所以连接生命周期会重很多。
 
 ### 边界情况
 

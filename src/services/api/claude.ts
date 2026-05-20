@@ -9,6 +9,7 @@ import type { ContentBlockParam, MessageParam } from '@anthropic-ai/sdk/resource
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions'
 import type { Tool } from '../../Tool.js'
 import type { StreamEvent } from '../../types/stream.js'
+import { getVisibleToolsForRequest } from '../tools/tool_search.js'
 
 // ─── Provider 探测 ────────────────────────────────────────────
 
@@ -28,12 +29,13 @@ async function streamAnthropic(
   options: { model: string; maxTokens: number; system?: string },
 ): Promise<MessageParam> {
   const client = new Anthropic()
+  const visibleTools = tools ? getVisibleToolsForRequest(tools) : undefined
   const stream = client.messages.stream({
     model: options.model,
     max_tokens: options.maxTokens,
     system: options.system,
     messages,
-    tools: tools?.map(t => ({ name: t.name, description: t.description, input_schema: t.input_schema })),
+    tools: visibleTools?.map(t => ({ name: t.name, description: t.description, input_schema: t.input_schema })),
   })
 
   const toolAccs = new Map<number, AccToolUse>()
@@ -87,12 +89,13 @@ async function streamOpenAI(
   if (options.system) {
     openAIMsgs.unshift({ role: 'system' as const, content: options.system })
   }
+  const visibleTools = tools ? getVisibleToolsForRequest(tools) : undefined
 
   const stream = await client.chat.completions.create({
     model: options.model,
     max_tokens: options.maxTokens,
     messages: openAIMsgs,
-    tools: tools?.map(t => ({
+    tools: visibleTools?.map(t => ({
       type: 'function' as const,
       function: { name: t.name, description: t.description, parameters: t.input_schema },
     })),

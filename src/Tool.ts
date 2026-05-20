@@ -28,6 +28,11 @@ export interface Tool {
   // 'cancel' — 丢弃结果（只读工具适合，不损失数据）
   // 'block'  — 等当前执行完再处理新消息（写入工具适合）
   interruptBehavior(): 'cancel' | 'block'
+
+  // MCP 工具默认不把完整 schema 放进首轮请求，由 ToolSearch 按需加载。
+  isMcp?: boolean
+  alwaysLoad?: boolean
+  searchHint?: string
 }
 
 export type ToolResult = {
